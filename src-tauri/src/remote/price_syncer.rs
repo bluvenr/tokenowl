@@ -1,4 +1,5 @@
 use crate::models::settings::ModelPricing;
+use crate::remote::download_source::{DownloadSource, SharedDownloadSource};
 use std::time::{Duration, Instant};
 use std::sync::Mutex;
 
@@ -13,11 +14,12 @@ pub struct PriceSyncer {
     cache_duration: Duration,
     github_owner: String,
     github_repo: String,
+    download_source: SharedDownloadSource,
     client: reqwest::Client,
 }
 
 impl PriceSyncer {
-    pub fn new(owner: &str, repo: &str, interval_hours: u8) -> Self {
+    pub fn new(owner: &str, repo: &str, interval_hours: u8, download_source: SharedDownloadSource) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(15))
             .build()
@@ -27,22 +29,9 @@ impl PriceSyncer {
             cache_duration: Duration::from_secs(interval_hours as u64 * 3600),
             github_owner: owner.to_string(),
             github_repo: repo.to_string(),
+            download_source,
             client,
         }
-    }
-
-    fn cdn_url(&self) -> String {
-        format!(
-            "https://cdn.jsdelivr.net/gh/{}/{}/remote/prices.json",
-            self.github_owner, self.github_repo
-        )
-    }
-
-    fn fallback_url(&self) -> String {
-        format!(
-            "https://raw.githubusercontent.com/{}/{}/main/remote/prices.json",
-            self.github_owner, self.github_repo
-        )
     }
 
     /// Fetch remote prices (with caching)
@@ -64,19 +53,19 @@ impl PriceSyncer {
             }
         }
 
-        // Try CDN first
-        let prices = self.fetch_prices(&self.cdn_url()).await;
+        // Build URL list based on download source preference
+        let source = self.download_source.read()
+            .map(|g| g.clone())
+            .unwrap_or(DownloadSource::Auto);
+        let urls = source.urls_for(&self.github_owner, &self.github_repo, "remote/prices.json");
 
-        if let Some(p) = prices {
-            self.update_cache(p.clone());
-            return p;
-        }
-
-        // Fallback to GitHub Raw
-        log::warn!("CDN price fetch failed, trying fallback");
-        if let Some(p) = self.fetch_prices(&self.fallback_url()).await {
-            self.update_cache(p.clone());
-            return p;
+        // Try each URL in order
+        for url in &urls {
+            if let Some(p) = self.fetch_prices(url).await {
+                self.update_cache(p.clone());
+                return p;
+            }
+            log::warn!("Price fetch failed for: {}, trying next source", url);
         }
 
         log::warn!("All remote price fetch attempts failed, returning empty");

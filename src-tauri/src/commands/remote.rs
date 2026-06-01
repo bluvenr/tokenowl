@@ -3,6 +3,7 @@ use tauri::State;
 
 use crate::commands::usage::DbState;
 use crate::remote::config::RemoteConfig;
+use crate::remote::download_source::{SharedDownloadSource, new_shared};
 use crate::remote::price_syncer::PriceSyncer;
 use crate::crash::logger::{CrashLogger, CrashEntry};
 use crate::updater::checker::UpdateInfo;
@@ -14,16 +15,19 @@ pub struct RemoteState {
     pub crash_logger: Option<CrashLogger>,
     pub github_owner: String,
     pub github_repo: String,
+    pub download_source: SharedDownloadSource,
 }
 
 impl RemoteState {
-    pub fn new(owner: &str, repo: &str, price_sync_hours: u8) -> Self {
+    pub fn new(owner: &str, repo: &str, price_sync_hours: u8, download_source_str: &str) -> Self {
+        let download_source = new_shared(download_source_str);
         Self {
-            price_syncer: PriceSyncer::new(owner, repo, price_sync_hours),
-            config_manager: crate::remote::config::RemoteConfigManager::new(owner, repo),
+            price_syncer: PriceSyncer::new(owner, repo, price_sync_hours, download_source.clone()),
+            config_manager: crate::remote::config::RemoteConfigManager::new(owner, repo, download_source.clone()),
             crash_logger: CrashLogger::new(),
             github_owner: owner.to_string(),
             github_repo: repo.to_string(),
+            download_source,
         }
     }
 }
@@ -45,6 +49,7 @@ pub async fn check_for_update(
         env!("CARGO_PKG_VERSION"),
         &remote.github_owner,
         &remote.github_repo,
+        remote.download_source.clone(),
     );
     Ok(checker.check_for_update().await)
 }

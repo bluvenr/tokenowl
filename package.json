@@ -2,6 +2,7 @@
   "name": "tokenowl",
   "private": true,
   "version": "0.1.0",
+  "description": "AI Coding Cost Tracker - Monitor and manage AI coding tool usage costs",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,3 +1,4 @@
+use crate::remote::download_source::{DownloadSource, SharedDownloadSource, GITEE_OWNER, GITEE_REPO};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -45,11 +46,12 @@ pub struct UpdateChecker {
     current_version: String,
     github_owner: String,
     github_repo: String,
+    download_source: SharedDownloadSource,
     client: reqwest::Client,
 }
 
 impl UpdateChecker {
-    pub fn new(current_version: &str, owner: &str, repo: &str) -> Self {
+    pub fn new(current_version: &str, owner: &str, repo: &str, download_source: SharedDownloadSource) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
@@ -58,22 +60,9 @@ impl UpdateChecker {
             current_version: current_version.to_string(),
             github_owner: owner.to_string(),
             github_repo: repo.to_string(),
+            download_source,
             client,
         }
-    }
-
-    fn latest_json_url(&self) -> String {
-        format!(
-            "https://cdn.jsdelivr.net/gh/{}/{}/remote/latest.json",
-            self.github_owner, self.github_repo
-        )
-    }
-
-    fn fallback_latest_url(&self) -> String {
-        format!(
-            "https://raw.githubusercontent.com/{}/{}/main/remote/latest.json",
-            self.github_owner, self.github_repo
-        )
     }
 
     /// Check for updates. Returns Some(UpdateInfo) if a newer version is available.
@@ -95,12 +84,21 @@ impl UpdateChecker {
     }
 
     async fn fetch_latest(&self) -> Option<RemoteVersion> {
-        // Try CDN first
-        if let Some(v) = self.fetch_url(&self.latest_json_url()).await {
-            return Some(v);
+        // Build URL list based on download source preference
+        let source = self.download_source.read()
+            .map(|g| g.clone())
+            .unwrap_or(DownloadSource::Auto);
+        let urls = source.urls_for(&self.github_owner, &self.github_repo, "remote/latest.json");
+
+        // Try each URL in order
+        for url in &urls {
+            if let Some(v) = self.fetch_url(url).await {
+                return Some(v);
+            }
+            log::warn!("Update check failed for: {}, trying next source", url);
         }
-        // Fallback
-        self.fetch_url(&self.fallback_latest_url()).await
+
+        None
     }
 
     async fn fetch_url(&self, url: &str) -> Option<RemoteVersion> {
@@ -135,7 +133,7 @@ impl UpdateChecker {
     }
 
     fn get_download_url(&self, remote: &RemoteVersion) -> String {
-        // Try platform-specific URL first
+        // Try platform-specific URL first (from latest.json)
         #[cfg(target_os = "windows")]
         if let Some(ref win) = remote.platforms.windows_x86_64 {
             return win.url.clone();
@@ -153,11 +151,20 @@ impl UpdateChecker {
             }
         }
 
-        // Fallback to GitHub releases page
-        format!(
-            "https://github.com/{}/{}/releases/latest",
-            self.github_owner, self.github_repo
-        )
+        // Fallback: use download source to determine releases page
+        let source = self.download_source.read()
+            .map(|g| g.clone())
+            .unwrap_or(DownloadSource::Auto);
+        match source {
+            DownloadSource::Gitee => format!(
+                "https://gitee.com/{}/{}/releases/latest",
+                GITEE_OWNER, GITEE_REPO
+            ),
+            _ => format!(
+                "https://github.com/{}/{}/releases/latest",
+                self.github_owner, self.github_repo
+            ),
+        }
     }
 
     /// Start periodic update checking (spawned as background task)
@@ -166,6 +173,7 @@ impl UpdateChecker {
         repo: String,
         current_version: String,
         interval_hours: u8,
+        download_source: SharedDownloadSource,
         app_handle: tauri::AppHandle,
     ) {
         if interval_hours == 0 {
@@ -174,7 +182,7 @@ impl UpdateChecker {
         }
 
         tauri::async_runtime::spawn(async move {
-            let checker = UpdateChecker::new(&current_version, &owner, &repo);
+            let checker = UpdateChecker::new(&current_version, &owner, &repo, download_source);
             let interval = Duration::from_secs(interval_hours as u64 * 3600);
 
             // Initial check after 5 second delay

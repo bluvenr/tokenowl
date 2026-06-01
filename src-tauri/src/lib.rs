@@ -76,6 +76,7 @@ pub fn run() {
         GITHUB_OWNER,
         GITHUB_REPO,
         app_settings.price_sync_interval_hours,
+        &app_settings.download_source,
     ));
 
     // Set up panic hook for crash logging
@@ -232,6 +233,7 @@ pub fn run() {
                 GITHUB_REPO.to_string(),
                 env!("CARGO_PKG_VERSION").to_string(),
                 update_interval,
+                remote_state.download_source.clone(),
                 app_handle.clone(),
             );
 

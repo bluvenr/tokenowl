@@ -1,3 +1,4 @@
+use crate::remote::download_source::{DownloadSource, SharedDownloadSource};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -64,11 +65,12 @@ pub struct RemoteConfigManager {
     cache_duration: Duration,
     github_owner: String,
     github_repo: String,
+    download_source: SharedDownloadSource,
     client: reqwest::Client,
 }
 
 impl RemoteConfigManager {
-    pub fn new(owner: &str, repo: &str) -> Self {
+    pub fn new(owner: &str, repo: &str, download_source: SharedDownloadSource) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(15))
             .build()
@@ -78,23 +80,9 @@ impl RemoteConfigManager {
             cache_duration: Duration::from_secs(6 * 3600), // 6 hours
             github_owner: owner.to_string(),
             github_repo: repo.to_string(),
+            download_source,
             client,
         }
-    }
-
-    /// Get CDN URL for a file, with optional fallback
-    fn cdn_url(&self, file: &str) -> String {
-        format!(
-            "https://cdn.jsdelivr.net/gh/{}/{}/remote/{}",
-            self.github_owner, self.github_repo, file
-        )
-    }
-
-    fn fallback_url(&self, file: &str) -> String {
-        format!(
-            "https://raw.githubusercontent.com/{}/{}/main/remote/{}",
-            self.github_owner, self.github_repo, file
-        )
     }
 
     /// Fetch remote config.json (with caching)
@@ -109,42 +97,33 @@ impl RemoteConfigManager {
             }
         }
 
-        // Fetch from CDN (with fallback)
-        let config = self.fetch_from_cdn("config.json").await;
+        // Build URL list based on download source preference
+        let source = self.download_source.read()
+            .map(|g| g.clone())
+            .unwrap_or(DownloadSource::Auto);
+        let urls = source.urls_for(&self.github_owner, &self.github_repo, "remote/config.json");
 
-        if let Some(cfg) = config {
-            if let Ok(mut cache) = self.cache.lock() {
-                *cache = Some(CachedConfig {
-                    config: cfg.clone(),
-                    fetched_at: Instant::now(),
-                });
-            }
-            Some(cfg)
-        } else {
-            // Try fallback URL
-            log::warn!("CDN config fetch failed, trying fallback");
-            match self.fetch_fallback("config.json").await {
-                Some(cfg) => {
-                    if let Ok(mut cache) = self.cache.lock() {
-                        *cache = Some(CachedConfig {
-                            config: cfg.clone(),
-                            fetched_at: Instant::now(),
-                        });
-                    }
-                    Some(cfg)
+        // Try each URL in order
+        for url in &urls {
+            if let Some(cfg) = self.fetch_url(url).await {
+                if let Ok(mut cache) = self.cache.lock() {
+                    *cache = Some(CachedConfig {
+                        config: cfg.clone(),
+                        fetched_at: Instant::now(),
+                    });
                 }
-                None => {
-                    log::warn!("All remote config fetch attempts failed");
-                    None
-                }
+                return Some(cfg);
             }
+            log::warn!("Config fetch failed for: {}, trying next source", url);
         }
+
+        log::warn!("All remote config fetch attempts failed");
+        None
     }
 
-    async fn fetch_from_cdn(&self, file: &str) -> Option<RemoteConfig> {
-        let url = self.cdn_url(file);
-        log::info!("Fetching remote config from CDN: {}", url);
-        match self.client.get(&url).send().await {
+    async fn fetch_url(&self, url: &str) -> Option<RemoteConfig> {
+        log::info!("Fetching remote config from: {}", url);
+        match self.client.get(url).send().await {
             Ok(resp) if resp.status().is_success() => {
                 match resp.json::<RemoteConfig>().await {
                     Ok(config) => {
@@ -158,24 +137,13 @@ impl RemoteConfigManager {
                 }
             }
             Ok(resp) => {
-                log::warn!("CDN returned status {}", resp.status());
+                log::warn!("Remote config returned status {}", resp.status());
                 None
             }
             Err(e) => {
-                log::warn!("CDN fetch error: {}", e);
+                log::warn!("Remote config fetch error: {}", e);
                 None
             }
-        }
-    }
-
-    async fn fetch_fallback(&self, file: &str) -> Option<RemoteConfig> {
-        let url = self.fallback_url(file);
-        log::info!("Fetching remote config from fallback: {}", url);
-        match self.client.get(&url).send().await {
-            Ok(resp) if resp.status().is_success() => {
-                resp.json::<RemoteConfig>().await.ok()
-            }
-            _ => None,
         }
     }
 

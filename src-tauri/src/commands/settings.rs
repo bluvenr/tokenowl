@@ -3,6 +3,7 @@ use tauri::State;
 use crate::commands::usage::DbState;
 use crate::commands::remote::RemoteStateManaged;
 use crate::models::settings::{AppSettings, ModelPricing, SourceConfig};
+use crate::remote::download_source::update_shared;
 
 #[tauri::command]
 pub fn get_settings(db: State<'_, DbState>) -> Result<AppSettings, String> {
@@ -13,11 +14,17 @@ pub fn get_settings(db: State<'_, DbState>) -> Result<AppSettings, String> {
 pub fn update_settings(
     app: tauri::AppHandle,
     db: State<'_, DbState>,
+    remote: State<'_, RemoteStateManaged>,
     settings: AppSettings,
 ) -> Result<(), String> {
     // Read current settings to detect if auto_start actually changed
     let old_settings = db.get_app_settings().unwrap_or_default();
     db.update_app_settings(&settings).map_err(|e| e.to_string())?;
+
+    // Update download source in remote services if it changed
+    if settings.download_source != old_settings.download_source {
+        update_shared(&remote.download_source, &settings.download_source);
+    }
 
     // Only sync auto-start with OS when the value actually changed
     if settings.auto_start != old_settings.auto_start {
