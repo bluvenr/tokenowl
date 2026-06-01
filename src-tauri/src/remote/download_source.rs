@@ -27,9 +27,10 @@ impl DownloadSource {
     }
 
     /// Build jsDelivr CDN URL for a file path (mirrors GitHub repo)
+    /// Uses @main branch pinning to avoid long-lived CDN cache on unversioned URLs.
     pub fn cdn_url(github_owner: &str, github_repo: &str, path: &str) -> String {
         format!(
-            "https://cdn.jsdelivr.net/gh/{}/{}/{}",
+            "https://cdn.jsdelivr.net/gh/{}/{}@main/{}",
             github_owner, github_repo, path
         )
     }
