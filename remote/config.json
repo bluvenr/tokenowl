@@ -1,0 +1,9 @@
+{
+  "minVersion": "0.1.0",
+  "features": {
+    "priceSync": true,
+    "updateCheck": true,
+    "crashReport": true
+  },
+  "announcement": null
+}

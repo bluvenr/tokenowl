@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0",
+  "notes": "Initial release of TokenOwl - AI Coding Cost Tracker\n\n- Support for 5 AI coding tools: Claude Code, Codex CLI, Gemini CLI, Kimi Code, Qwen Code\n- Real-time cost tracking with system tray widget\n- Interactive dashboard with Recharts visualizations\n- Budget alerts with system notifications\n- CSV/JSON data export\n- Multi-language support (Chinese + English)\n- Custom model pricing editor",
+  "pubDate": "2026-06-01",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/bluvenr/tokenowl/releases/download/v0.1.0/tokenowl_0.1.0_x64-setup.exe",
+      "signature": ""
+    },
+    "darwin-x86_64": {
+      "url": "https://github.com/bluvenr/tokenowl/releases/download/v0.1.0/tokenowl_0.1.0_x64.dmg",
+      "signature": ""
+    },
+    "darwin-aarch64": {
+      "url": "https://github.com/bluvenr/tokenowl/releases/download/v0.1.0/tokenowl_0.1.0_aarch64.dmg",
+      "signature": ""
+    }
+  }
+}
