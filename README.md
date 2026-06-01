@@ -1,5 +1,7 @@
 # TokenOwl
 
+**[English](README.md)** | [中文](README.zh-CN.md)
+
 > AI Coding Cost Tracker — Desktop Widget
 
 TokenOwl is a lightweight desktop widget that tracks your AI coding tool costs in real-time. It monitors usage across 5 popular AI coding assistants and provides a unified dashboard with cost breakdowns, trend charts, and budget alerts.
