@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { formatCost, formatTokens, getSourceColor } from "@/lib/format";
 import { useTranslation } from "react-i18next";
@@ -17,6 +18,29 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+
+type Dimension = "cost" | "tokens";
+
+function DimensionToggle({ value, onChange }: { value: Dimension; onChange: (v: Dimension) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex gap-0.5 rounded-md bg-muted p-0.5">
+      {(["cost", "tokens"] as const).map((d) => (
+        <button
+          key={d}
+          onClick={() => onChange(d)}
+          className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
+            value === d
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {d === "cost" ? t("dashboard.cost") : t("dashboard.tokens_dim")}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // ─── Cost Overview ──────────────────────────────────────────────────
 
@@ -56,8 +80,8 @@ export function CostOverview() {
         </div>
         {summary && summary.totalTokens > 0 && (
           <div className="mt-3 flex gap-2 text-xs text-muted-foreground">
-            <span>In: {formatTokens(summary.inputTokens)}</span>
-            <span>Out: {formatTokens(summary.outputTokens)}</span>
+            <span>{t("dashboard.lbl_in")}: {formatTokens(summary.inputTokens)}</span>
+            <span>{t("dashboard.lbl_out")}: {formatTokens(summary.outputTokens)}</span>
           </div>
         )}
       </CardContent>
@@ -70,20 +94,28 @@ export function CostOverview() {
 export function ToolBreakdown() {
   const { bySource } = useAppStore();
   const { t } = useTranslation();
+  const [dim, setDim] = useState<Dimension>("cost");
+
+  const totalTokensAll = bySource.reduce((sum, s) => sum + s.totalTokens, 0);
 
   const chartData = bySource.map((s) => ({
     name: s.displayName,
-    value: s.costUsd,
+    value: dim === "cost" ? s.costUsd : s.totalTokens,
     color: getSourceColor(s.source),
-    percentage: s.percentage,
+    costUsd: s.costUsd,
+    totalTokens: s.totalTokens,
+    percentage: dim === "cost"
+      ? s.percentage
+      : (totalTokensAll > 0 ? (s.totalTokens / totalTokensAll) * 100 : 0),
   }));
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {t("dashboard.tool_breakdown")}
         </CardTitle>
+        <DimensionToggle value={dim} onChange={setDim} />
       </CardHeader>
       <CardContent>
         {bySource.length === 0 ? (
@@ -111,14 +143,16 @@ export function ToolBreakdown() {
               </ResponsiveContainer>
             </div>
             <div className="flex-1 space-y-1.5">
-              {bySource.map((s) => (
-                <div key={s.source} className="flex items-center gap-2">
+              {chartData.map((s) => (
+                <div key={s.name} className="flex items-center gap-2">
                   <div
                     className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: getSourceColor(s.source) }}
+                    style={{ backgroundColor: s.color }}
                   />
-                  <span className="text-sm flex-1 truncate">{s.displayName}</span>
-                  <span className="text-sm font-medium tabular-nums">{formatCost(s.costUsd)}</span>
+                  <span className="text-sm flex-1 truncate">{s.name}</span>
+                  <span className="text-sm font-medium tabular-nums">
+                    {dim === "cost" ? formatCost(s.costUsd) : formatTokens(s.totalTokens)}
+                  </span>
                   <span className="text-xs text-muted-foreground w-10 text-right tabular-nums">
                     {s.percentage.toFixed(0)}%
                   </span>
@@ -132,16 +166,19 @@ export function ToolBreakdown() {
   );
 }
 
-// ─── Trend Chart (AreaChart with granularity switch) ────────────────
+// ─── Trend Chart (AreaChart with granularity + dimension switch) ────
 
 export function TrendChart() {
   const { trend, trendGranularity, setTrendGranularity } = useAppStore();
   const { t } = useTranslation();
+  const [dim, setDim] = useState<Dimension>("cost");
 
   const displayData = trend.map((p) => ({
     ...p,
     displayDate: p.date.length > 10 ? p.date.slice(5) : p.date,
   }));
+
+  const formatAxis = (v: number) => dim === "cost" ? formatCost(v) : formatTokens(v);
 
   return (
     <Card>
@@ -149,24 +186,27 @@ export function TrendChart() {
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {t("dashboard.trend")}
         </CardTitle>
-        <div className="flex gap-1">
-          {([
-            { key: "hourly", label: t("period.hourly", "Hourly") },
-            { key: "daily", label: t("period.daily", "Daily") },
-            { key: "weekly", label: t("period.weekly", "Weekly") },
-          ] as const).map((g) => (
-            <button
-              key={g.key}
-              onClick={() => setTrendGranularity(g.key)}
-              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
-                trendGranularity === g.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {g.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <DimensionToggle value={dim} onChange={setDim} />
+          <div className="flex gap-1">
+            {([
+              { key: "hourly", label: t("period.hourly", "Hourly") },
+              { key: "daily", label: t("period.daily", "Daily") },
+              { key: "weekly", label: t("period.weekly", "Weekly") },
+            ] as const).map((g) => (
+              <button
+                key={g.key}
+                onClick={() => setTrendGranularity(g.key)}
+                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  trendGranularity === g.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -181,6 +221,10 @@ export function TrendChart() {
                     <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.3} />
                     <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="tokenGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-chart-2, #22c55e)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--color-chart-2, #22c55e)" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis
@@ -194,8 +238,8 @@ export function TrendChart() {
                   tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v: number) => formatCost(v)}
-                  width={50}
+                  tickFormatter={formatAxis}
+                  width={55}
                 />
                 <Tooltip
                   content={({ active, payload }) => {
@@ -215,10 +259,10 @@ export function TrendChart() {
                 />
                 <Area
                   type="monotone"
-                  dataKey="costUsd"
-                  stroke="var(--color-primary)"
+                  dataKey={dim === "cost" ? "costUsd" : "totalTokens"}
+                  stroke={dim === "cost" ? "var(--color-primary)" : "var(--color-chart-2, #22c55e)"}
                   strokeWidth={2}
-                  fill="url(#costGradient)"
+                  fill={dim === "cost" ? "url(#costGradient)" : "url(#tokenGradient)"}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -234,6 +278,7 @@ export function TrendChart() {
 export function ModelBreakdown() {
   const { byModel } = useAppStore();
   const { t } = useTranslation();
+  const [dim, setDim] = useState<Dimension>("cost");
 
   const chartData = byModel.slice(0, 8).map((m) => ({
     name: m.model.length > 20 ? m.model.slice(0, 18) + "..." : m.model,
@@ -242,12 +287,15 @@ export function ModelBreakdown() {
     source: m.source,
   }));
 
+  const formatAxis = (v: number) => dim === "cost" ? formatCost(v) : formatTokens(v);
+
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {t("dashboard.model_detail")}
         </CardTitle>
+        <DimensionToggle value={dim} onChange={setDim} />
       </CardHeader>
       <CardContent>
         {byModel.length === 0 ? (
@@ -262,7 +310,7 @@ export function ModelBreakdown() {
                   tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v: number) => formatCost(v)}
+                  tickFormatter={formatAxis}
                 />
                 <YAxis
                   type="category"
@@ -288,7 +336,12 @@ export function ModelBreakdown() {
                     return null;
                   }}
                 />
-                <Bar dataKey="cost" fill="var(--color-chart-1)" radius={[0, 4, 4, 0]} barSize={18} />
+                <Bar
+                  dataKey={dim === "cost" ? "cost" : "tokens"}
+                  fill="var(--color-chart-1)"
+                  radius={[0, 4, 4, 0]}
+                  barSize={18}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

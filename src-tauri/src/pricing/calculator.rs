@@ -13,5 +13,10 @@ pub fn calculate_cost(tokens: &TokenUsage, price: &ModelPricing) -> f64 {
         * price.cache_read_per_million.unwrap_or(price.input_per_million * 0.1)
         / 1_000_000.0;
 
-    input_cost + output_cost + cache_write_cost + cache_read_cost
+    // Reasoning tokens: use dedicated price if set, otherwise fall back to output price
+    let reasoning_cost = tokens.reasoning_tokens as f64
+        * price.reasoning_per_million.unwrap_or(price.output_per_million)
+        / 1_000_000.0;
+
+    input_cost + output_cost + cache_write_cost + cache_read_cost + reasoning_cost
 }

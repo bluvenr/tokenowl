@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { ExternalLink, RefreshCw, Search } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   getSettings,
@@ -11,6 +11,9 @@ import {
   updateCustomPrice,
   resetCustomPrice,
   deleteCustomPrice,
+  recalculateCosts,
+  countModelRecords,
+  getModelsMissingPrices,
   getBudgetConfig,
   updateBudgetConfig,
   exportUsageCsv,
@@ -28,6 +31,7 @@ import {
   type SourceStatus,
   type DbStats,
   type UpdateInfo,
+  type MissingModelPrice,
 } from "@/lib/tauri";
 import { LANGUAGES, DATA_SOURCES } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,6 +39,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -48,7 +60,13 @@ import { CrashLogViewer } from "@/components/crash/CrashLogViewer";
 
 type Tab = "general" | "data_source" | "pricing" | "budget" | "privacy" | "about";
 
-export function Settings({ onSettingsSaved }: { onSettingsSaved?: () => void }) {
+export function Settings({ onSettingsSaved, initialTab, missingModels = [], refreshMissing, pricingPrefillSignal = 0 }: {
+  onSettingsSaved?: () => void;
+  initialTab?: Tab;
+  missingModels?: MissingModelPrice[];
+  refreshMissing: () => void;
+  pricingPrefillSignal?: number;
+}) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -58,10 +76,18 @@ export function Settings({ onSettingsSaved }: { onSettingsSaved?: () => void }) 
   const [budget, setBudget] = useState<BudgetConfig | null>(null);
   const [rescanning, setRescanning] = useState(false);
   const [dbStats, setDbStats] = useState<DbStats | null>(null);
+  const [recalcModel, setRecalcModel] = useState<{ modelId: string; displayName: string; count: number } | null>(null);
 
   useEffect(() => {
     loadAll();
   }, []);
+
+  // Switch to the specified tab when navigated from Dashboard
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   async function loadAll() {
     try {
@@ -143,9 +169,13 @@ export function Settings({ onSettingsSaved }: { onSettingsSaved?: () => void }) 
                 settings={settings}
                 dbStats={dbStats}
                 onSave={async (s) => {
-                  await updateSettings(s);
-                  setSettings(s);
-                  onSettingsSaved?.();
+                  try {
+                    await updateSettings(s);
+                    setSettings(s);
+                    onSettingsSaved?.();
+                  } catch (e) {
+                    showToast(t("common.error"), String(e), "error");
+                  }
                 }}
               />
             </TabsContent>
@@ -182,27 +212,62 @@ export function Settings({ onSettingsSaved }: { onSettingsSaved?: () => void }) 
             <TabsContent value="pricing" className="mt-4 max-w-3xl mx-auto px-6">
               <PricingTab
                 prices={prices}
+                missingModels={missingModels}
+                pricingPrefillSignal={pricingPrefillSignal}
                 onUpdate={async (price) => {
-                  await updateCustomPrice(price);
-                  setPrices((prev) =>
-                    prev.map((p) => (p.modelId === price.modelId ? price : p))
-                  );
-                  showToast(t("settings.save"), price.displayName, "success");
+                  try {
+                    await updateCustomPrice(price);
+                    showToast(t("settings.save"), price.displayName, "success");
+                    await loadAll();
+
+                    // Check if this model was previously missing (new price added)
+                    const currentMissing = await getModelsMissingPrices();
+                    const wasMissing = currentMissing.some(m => m.model === price.modelId);
+
+                    if (wasMissing) {
+                      // New price: auto-backfill cost_usd (no dialog needed)
+                      await recalculateCosts(price.modelId);
+                      refreshMissing();
+                    } else {
+                      refreshMissing();
+                      // Edited existing price: ask user if they want to recalculate
+                      const count = await countModelRecords(price.modelId);
+                      if (count > 0) {
+                        setRecalcModel({ modelId: price.modelId, displayName: price.displayName, count });
+                      }
+                    }
+                  } catch (e) {
+                    showToast(t("common.error"), String(e), "error");
+                    throw e;
+                  }
                 }}
                 onReset={async (modelId) => {
-                  await resetCustomPrice(modelId);
-                  setPrices((prev) =>
-                    prev.map((p) =>
-                      p.modelId === modelId ? { ...p, priceSource: "builtin" } : p
-                    )
-                  );
+                  try {
+                    const name = prices.find(p => p.modelId === modelId)?.displayName ?? modelId;
+                    await resetCustomPrice(modelId);
+                    showToast(t("settings.reset_default"), t("settings.saved"), "success");
+                    await loadAll();
+                    refreshMissing();
+                    const count = await countModelRecords(modelId);
+                    if (count > 0) {
+                      setRecalcModel({ modelId, displayName: name, count });
+                    }
+                  } catch (e) {
+                    showToast(t("common.error"), String(e), "error");
+                  }
                 }}
                 onDelete={async (modelId) => {
-                  await deleteCustomPrice(modelId);
-                  setPrices((prev) => prev.filter((p) => p.modelId !== modelId));
-                  showToast(t("settings.delete_model"), modelId, "info");
+                  try {
+                    await deleteCustomPrice(modelId);
+                    // Invalidate cost_usd so records appear in missingModels again
+                    await recalculateCosts(modelId);
+                    showToast(t("settings.delete_model"), modelId, "info");
+                    await loadAll();
+                    refreshMissing();
+                  } catch (e) {
+                    showToast(t("common.error"), String(e), "error");
+                  }
                 }}
-                onRefresh={loadAll}
               />
             </TabsContent>
 
@@ -211,9 +276,13 @@ export function Settings({ onSettingsSaved }: { onSettingsSaved?: () => void }) 
                 <BudgetTab
                   budget={budget}
                   onSave={async (b) => {
-                    await updateBudgetConfig(b);
-                    setBudget(b);
-                    onSettingsSaved?.();
+                    try {
+                      await updateBudgetConfig(b);
+                      setBudget(b);
+                      onSettingsSaved?.();
+                    } catch (e) {
+                      showToast(t("common.error"), String(e), "error");
+                    }
                   }}
                 />
               )}
@@ -229,6 +298,39 @@ export function Settings({ onSettingsSaved }: { onSettingsSaved?: () => void }) 
           </div>
         </Tabs>
       )}
+
+      {/* Recalculate historical costs dialog */}
+      <Dialog open={recalcModel !== null} onOpenChange={(open) => { if (!open) setRecalcModel(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("settings.sync_history_title")}</DialogTitle>
+            <DialogDescription>
+              {t("settings.sync_history_msg", { model: recalcModel?.displayName ?? "", count: recalcModel?.count ?? 0 })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" size="sm" onClick={() => setRecalcModel(null)}>
+              {t("settings.sync_skip")}
+            </Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (recalcModel) {
+                  try {
+                    const count = await recalculateCosts(recalcModel.modelId);
+                    showToast(t("settings.sync_done"), `${count} ${t("settings.records_updated")}`, "success");
+                  } catch (e) {
+                    showToast(t("common.error"), String(e), "error");
+                  }
+                }
+                setRecalcModel(null);
+              }}
+            >
+              {t("settings.sync_confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -480,37 +582,127 @@ function DataSourceTab({
 
 function PricingTab({
   prices,
+  missingModels = [],
+  pricingPrefillSignal = 0,
   onUpdate,
   onReset,
   onDelete,
-  onRefresh,
 }: {
   prices: ModelPricing[];
-  onUpdate: (price: ModelPricing) => void;
+  missingModels?: MissingModelPrice[];
+  pricingPrefillSignal?: number;
+  onUpdate: (price: ModelPricing) => Promise<void>;
   onReset: (modelId: string) => void;
   onDelete: (modelId: string) => void;
-  onRefresh: () => void;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState({ input: "", output: "" });
+  const [editValues, setEditValues] = useState({ input: "", output: "", cacheWrite: "", cacheRead: "" });
+  const [editTouched, setEditTouched] = useState(false);
+  const editInputValid = editValues.input.trim() !== "" && !isNaN(parseFloat(editValues.input)) && parseFloat(editValues.input) >= 0;
+  const editOutputValid = editValues.output.trim() !== "" && !isNaN(parseFloat(editValues.output)) && parseFloat(editValues.output) >= 0;
+  const editCWValid = editValues.cacheWrite.trim() === "" || (!isNaN(parseFloat(editValues.cacheWrite)) && parseFloat(editValues.cacheWrite) >= 0);
+  const editCRValid = editValues.cacheRead.trim() === "" || (!isNaN(parseFloat(editValues.cacheRead)) && parseFloat(editValues.cacheRead) >= 0);
+  const editFormValid = editInputValid && editOutputValid && editCWValid && editCRValid;
+  const [search, setSearch] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<"all" | "custom" | "default">("all");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [prefill, setPrefill] = useState<MissingModelPrice | undefined>(undefined);
+  const [currentMissingModel, setCurrentMissingModel] = useState<string | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Open form when prefill signal fires (from Dashboard banner or PricingTab banner navigation)
+  useEffect(() => {
+    if (pricingPrefillSignal > 0 && missingModels.length > 0) {
+      const first = missingModels[0];
+      setCurrentMissingModel(first.model);
+      setPrefill(first);
+      setShowAddForm(true);
+      setBannerDismissed(true);
+    }
+    // Only re-run when signal changes; missingModels is always populated before signal fires
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricingPrefillSignal]);
+
+  // After missingModels changes (post-save refresh), advance to next unsolved model or close form
+  useEffect(() => {
+    if (!showAddForm || !currentMissingModel) return;
+    if (!missingModels.some((m) => m.model === currentMissingModel)) {
+      const next = missingModels[0];
+      if (next) {
+        setCurrentMissingModel(next.model);
+        setPrefill(next);
+      } else {
+        setShowAddForm(false);
+        setPrefill(undefined);
+        setCurrentMissingModel(null);
+      }
+    }
+  }, [missingModels, showAddForm, currentMissingModel]);
+
+  // When a missing model is saved, await DB write then refresh missing list
+  async function handleAddSave(price: ModelPricing) {
+    await onUpdate(price);
+    if (!currentMissingModel) {
+      // Manual add (not from banner prefill): close form immediately.
+      setShowAddForm(false);
+      setPrefill(undefined);
+    }
+    // Prefill flow: the useEffect on missingModels handles advancing
+    // to the next model or closing the form once the data refreshes.
+  }
+
+  function handleBannerGoSetPrices() {
+    if (missingModels.length > 0) {
+      const first = missingModels[0];
+      setCurrentMissingModel(first.model);
+      setPrefill(first);
+      setShowAddForm(true);
+      setBannerDismissed(true);
+    }
+  }
+
+  const filtered = prices.filter((p) => {
+    // Source filter
+    if (sourceFilter === "custom" && p.priceSource !== "custom") return false;
+    if (sourceFilter === "default" && p.priceSource === "custom") return false;
+    // Text search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        p.modelId.toLowerCase().includes(q) ||
+        p.displayName.toLowerCase().includes(q) ||
+        p.source.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   function startEdit(p: ModelPricing) {
     setEditing(p.modelId);
+    setEditTouched(false);
     setEditValues({
       input: String(p.inputPerMillion),
       output: String(p.outputPerMillion),
+      cacheWrite: p.cacheWritePerMillion != null ? String(p.cacheWritePerMillion) : "",
+      cacheRead: p.cacheReadPerMillion != null ? String(p.cacheReadPerMillion) : "",
     });
   }
 
   async function saveEdit(p: ModelPricing) {
+    setEditTouched(true);
+    if (!editFormValid) return;
     const inputVal = parseFloat(editValues.input);
     const outputVal = parseFloat(editValues.output);
+    const cacheWriteVal = parseFloat(editValues.cacheWrite);
+    const cacheReadVal = parseFloat(editValues.cacheRead);
     const updated: ModelPricing = {
       ...p,
       inputPerMillion: isNaN(inputVal) ? p.inputPerMillion : inputVal,
       outputPerMillion: isNaN(outputVal) ? p.outputPerMillion : outputVal,
+      cacheWritePerMillion: isNaN(cacheWriteVal) ? (p.cacheWritePerMillion ?? null) : cacheWriteVal,
+      cacheReadPerMillion: isNaN(cacheReadVal) ? (p.cacheReadPerMillion ?? null) : cacheReadVal,
       priceSource: "custom",
     };
     await onUpdate(updated);
@@ -521,24 +713,77 @@ function PricingTab({
     const colors: Record<string, string> = {
       custom: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
       remote: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-      builtin: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
     };
+    const fallback = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+    // "cached" is an internal detail — show as "remote" to the user
+    const display = source === "cached" ? "remote" : source;
     return (
-      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${colors[source] || colors.builtin}`}>
-        {t(`settings.source_${source}`)}
+      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${colors[display] || fallback}`}>
+        {t(`settings.source_${display}`)}
       </span>
     );
   };
 
   return (
+    <>
     <div className="space-y-2">
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <Input
+          className="h-8 pl-8 text-xs"
+          placeholder={t("settings.search_model")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {/* Source filter */}
+      <div className="flex gap-1">
+        {([
+          ["all", "filter_all"],
+          ["custom", "filter_custom"],
+          ["default", "filter_default"],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setSourceFilter(key)}
+            className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+              sourceFilter === key
+                ? "bg-primary text-primary-foreground font-medium"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {t(`settings.${label}`)}
+            {key === "custom" && prices.filter((p) => p.priceSource === "custom").length > 0 && (
+              <span className="ml-1 opacity-60">{prices.filter((p) => p.priceSource === "custom").length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Missing price progress indicator */}
+      {missingModels.length > 0 && !showAddForm && !bannerDismissed && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-center justify-between">
+          <span>
+            {t("dashboard.missing_prices_title", { count: missingModels.length })}
+          </span>
+          <button
+            onClick={handleBannerGoSetPrices}
+            className="underline font-medium ml-2 shrink-0"
+          >
+            {t("dashboard.go_set_prices")}
+          </button>
+        </div>
+      )}
+
       {/* Add Custom Model Button */}
       {!showAddForm && (
         <Button
           variant="outline"
           size="sm"
           className="w-full text-xs"
-          onClick={() => setShowAddForm(true)}
+          onClick={() => { setPrefill(undefined); setShowAddForm(true); }}
         >
           + {t("settings.add_custom_model")}
         </Button>
@@ -546,50 +791,132 @@ function PricingTab({
 
       {/* Add Custom Model Form */}
       {showAddForm && (
-        <AddCustomModelForm
-          onSave={async (price) => {
-            await onUpdate(price);
-            setShowAddForm(false);
-            onRefresh();
-          }}
-          onCancel={() => setShowAddForm(false)}
-        />
+        <>
+          {currentMissingModel && prefill && missingModels.length > 0 && (
+            <div className="text-xs text-amber-600 dark:text-amber-400 px-1">
+              {missingModels.findIndex((m) => m.model === currentMissingModel) + 1} / {missingModels.length} — {prefill.model}
+            </div>
+          )}
+          <AddCustomModelForm
+            prefill={prefill}
+            existingIds={new Set(prices.map((p) => p.modelId))}
+            showSkip={!!currentMissingModel && missingModels.length > 1}
+            onSave={handleAddSave}
+            onSkip={() => {
+              // Advance to next missing model without saving
+              const idx = missingModels.findIndex((m) => m.model === currentMissingModel);
+              const next = missingModels[idx + 1] ?? missingModels[0];
+              if (next && next.model !== currentMissingModel) {
+                setCurrentMissingModel(next.model);
+                setPrefill(next);
+              } else {
+                // Only one model left or wrap-around: close form
+                setShowAddForm(false);
+                setPrefill(undefined);
+                setCurrentMissingModel(null);
+              }
+            }}
+            onCancel={() => { setShowAddForm(false); setPrefill(undefined); setCurrentMissingModel(null); }}
+          />
+        </>
       )}
 
-      {/* Existing Price List */}
-      {prices.map((p) => (
+      {/* Existing Price List (filtered) */}
+      {filtered.map((p) => (
         <Card key={p.modelId}>
-          <CardContent className="flex items-center gap-3 py-2.5">
-            <span className="flex-1 text-sm font-medium truncate">{p.displayName}</span>
+          <CardContent className={editing === p.modelId ? "py-3 space-y-3" : "flex items-center gap-3 py-2.5"}>
             {editing === p.modelId ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">In:</span>
-                <Input
-                  className="w-20 h-7 text-xs"
-                  value={editValues.input}
-                  onChange={(e) => setEditValues({ ...editValues, input: e.target.value })}
-                />
-                <span className="text-[10px] text-muted-foreground">Out:</span>
-                <Input
-                  className="w-20 h-7 text-xs"
-                  value={editValues.output}
-                  onChange={(e) => setEditValues({ ...editValues, output: e.target.value })}
-                />
-                <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => saveEdit(p)}>
-                  {t("settings.save")}
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(null)}>
-                  {t("common.cancel")}
-                </Button>
-              </div>
+              <>
+                {/* Edit mode: model name header + form grid */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{p.displayName}</span>
+                  {sourceBadge(p.priceSource)}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">{t("settings.input_price")} <span className="text-red-500">*</span></label>
+                    <Input
+                      className={`h-7 text-xs ${editTouched && !editInputValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editValues.input}
+                      onChange={(e) => setEditValues({ ...editValues, input: e.target.value })}
+                    />
+                    {editTouched && !editInputValid && (
+                      <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">{t("settings.output_price")} <span className="text-red-500">*</span></label>
+                    <Input
+                      className={`h-7 text-xs ${editTouched && !editOutputValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editValues.output}
+                      onChange={(e) => setEditValues({ ...editValues, output: e.target.value })}
+                    />
+                    {editTouched && !editOutputValid && (
+                      <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">{t("settings.cache_write_price")}</label>
+                    <Input
+                      className={`h-7 text-xs ${editTouched && !editCWValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editValues.cacheWrite}
+                      onChange={(e) => setEditValues({ ...editValues, cacheWrite: e.target.value })}
+                      placeholder={t("common.optional")}
+                    />
+                    {editTouched && !editCWValid && (
+                      <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">{t("settings.cache_read_price")}</label>
+                    <Input
+                      className={`h-7 text-xs ${editTouched && !editCRValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editValues.cacheRead}
+                      onChange={(e) => setEditValues({ ...editValues, cacheRead: e.target.value })}
+                      placeholder={t("common.optional")}
+                    />
+                    {editTouched && !editCRValid && (
+                      <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => saveEdit(p)} disabled={editTouched && !editFormValid}>
+                    {t("settings.save")}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(null)}>
+                    {t("common.cancel")}
+                  </Button>
+                </div>
+              </>
             ) : (
               <>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  ${p.inputPerMillion}/M
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  ${p.outputPerMillion}/M
-                </span>
+                {/* Display mode: compact two-row prices + vertically centered actions */}
+                <span className="flex-1 text-sm font-medium truncate">{p.displayName}</span>
+                <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+                    <span>{t("settings.lbl_input")}: ${p.inputPerMillion}</span>
+                    <span>{t("settings.lbl_output")}: ${p.outputPerMillion}</span>
+                  </div>
+                  {(p.cacheWritePerMillion != null || p.cacheReadPerMillion != null) && (
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 tabular-nums">
+                      {p.cacheWritePerMillion != null && <span>{t("settings.lbl_cache_write")}: ${p.cacheWritePerMillion}</span>}
+                      {p.cacheReadPerMillion != null && <span>{t("settings.lbl_cache_read")}: ${p.cacheReadPerMillion}</span>}
+                    </div>
+                  )}
+                </div>
                 {sourceBadge(p.priceSource)}
                 <Button
                   size="sm"
@@ -599,57 +926,139 @@ function PricingTab({
                 >
                   {t("common.edit")}
                 </Button>
-                {p.priceSource === "custom" && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs px-2"
-                      onClick={() => onReset(p.modelId)}
-                    >
-                      {t("settings.reset_default")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs px-2 text-red-500 hover:text-red-600"
-                      onClick={() => onDelete(p.modelId)}
-                    >
-                      {t("settings.delete_model")}
-                    </Button>
-                  </>
+                {p.priceSource === "custom" && p.hasDefault && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs px-2"
+                    onClick={() => onReset(p.modelId)}
+                  >
+                    {t("settings.reset_default")}
+                  </Button>
+                )}
+                {p.priceSource === "custom" && !p.hasDefault && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs px-2 text-red-500 hover:text-red-600"
+                    onClick={() => setDeleteConfirmId(p.modelId)}
+                  >
+                    {t("settings.delete_model")}
+                  </Button>
                 )}
               </>
             )}
           </CardContent>
         </Card>
       ))}
+      {filtered.length === 0 && search.trim() && (
+        <div className="text-center text-xs text-muted-foreground py-6">
+          {t("settings.no_match")}
+        </div>
+      )}
     </div>
+    {/* Delete confirmation dialog */}
+    <Dialog open={deleteConfirmId !== null} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t("settings.delete_confirm_title")}</DialogTitle>
+          <DialogDescription>
+            {t("settings.delete_confirm_msg", { modelId: deleteConfirmId ?? "" })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="mt-2">
+          <Button variant="outline" size="sm" onClick={() => setDeleteConfirmId(null)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              if (deleteConfirmId) {
+                onDelete(deleteConfirmId);
+              }
+              setDeleteConfirmId(null);
+            }}
+          >
+            {t("settings.confirm_delete")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
 // ─── Add Custom Model Form ──────────────────────────────────────────
 
 function AddCustomModelForm({
+  prefill,
+  existingIds = new Set<string>(),
+  showSkip,
   onSave,
+  onSkip,
   onCancel,
 }: {
+  prefill?: MissingModelPrice;
+  existingIds?: Set<string>;
+  showSkip?: boolean;
   onSave: (price: ModelPricing) => void;
+  onSkip?: () => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
-    modelId: "",
-    displayName: "",
-    source: "claude_code",
+    modelId: prefill?.model ?? "",
+    displayName: prefill?.model ?? "",
+    source: prefill?.source ?? "claude_code",
     inputPerMillion: "",
     outputPerMillion: "",
     cacheWritePerMillion: "",
     cacheReadPerMillion: "",
   });
+  const isDuplicate = existingIds.has(form.modelId.trim()) && form.modelId.trim() !== (prefill?.model ?? "");
+
+  // Validation
+  const modelIdValid = form.modelId.trim().length > 0;
+  const displayNameValid = form.displayName.trim().length > 0;
+  const inputValid = form.inputPerMillion.trim() !== "" && !isNaN(parseFloat(form.inputPerMillion)) && parseFloat(form.inputPerMillion) >= 0;
+  const outputValid = form.outputPerMillion.trim() !== "" && !isNaN(parseFloat(form.outputPerMillion)) && parseFloat(form.outputPerMillion) >= 0;
+  const cacheWriteValid = form.cacheWritePerMillion.trim() === "" || (!isNaN(parseFloat(form.cacheWritePerMillion)) && parseFloat(form.cacheWritePerMillion) >= 0);
+  const cacheReadValid = form.cacheReadPerMillion.trim() === "" || (!isNaN(parseFloat(form.cacheReadPerMillion)) && parseFloat(form.cacheReadPerMillion) >= 0);
+  const formValid = modelIdValid && displayNameValid && inputValid && outputValid && cacheWriteValid && cacheReadValid;
+  const [touched, setTouched] = useState(false);
+
+  // Reset entire form when prefill changes (e.g. advancing to next missing model)
+  useEffect(() => {
+    if (prefill) {
+      setForm({
+        modelId: prefill.model,
+        displayName: prefill.model,
+        source: prefill.source,
+        inputPerMillion: "",
+        outputPerMillion: "",
+        cacheWritePerMillion: "",
+        cacheReadPerMillion: "",
+      });
+      setTouched(false);
+      setShowDupConfirm(false);
+    }
+  }, [prefill]);
+
+  const [showDupConfirm, setShowDupConfirm] = useState(false);
 
   function handleSave() {
-    if (!form.modelId.trim() || !form.displayName.trim()) return;
+    setTouched(true);
+    if (!formValid) return;
+    if (isDuplicate) {
+      setShowDupConfirm(true);
+      return;
+    }
+    doSave();
+  }
+
+  function doSave() {
+    setShowDupConfirm(false);
     onSave({
       modelId: form.modelId.trim(),
       displayName: form.displayName.trim(),
@@ -663,28 +1072,40 @@ function AddCustomModelForm({
   }
 
   return (
+    <>
     <Card className="border-dashed border-2">
       <CardContent className="space-y-3 pt-4">
         <div className="text-sm font-medium">{t("settings.add_custom_model")}</div>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[10px] text-muted-foreground">{t("settings.model_id")}</label>
+            <label className="text-[10px] text-muted-foreground">{t("settings.model_id")} <span className="text-red-500">*</span></label>
             <Input
-              className="h-7 text-xs"
+              className={`h-7 text-xs ${touched && !modelIdValid ? "border-red-500 focus-visible:ring-red-500" : ""} ${isDuplicate ? "border-amber-500 focus-visible:ring-amber-500" : ""}`}
               value={form.modelId}
               onChange={(e) => setForm({ ...form, modelId: e.target.value })}
               placeholder={t("settings.model_id_placeholder")}
             />
+            {touched && !modelIdValid && (
+              <p className="text-[10px] text-red-500 mt-0.5">{t("settings.required_field")}</p>
+            )}
+            {isDuplicate && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">
+                {t("settings.model_exists")}
+              </p>
+            )}
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground">{t("settings.display_name")}</label>
+            <label className="text-[10px] text-muted-foreground">{t("settings.display_name")} <span className="text-red-500">*</span></label>
             <Input
-              className="h-7 text-xs"
+              className={`h-7 text-xs ${touched && !displayNameValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               value={form.displayName}
               onChange={(e) => setForm({ ...form, displayName: e.target.value })}
               placeholder={t("settings.display_name_placeholder")}
             />
+            {touched && !displayNameValid && (
+              <p className="text-[10px] text-red-500 mt-0.5">{t("settings.required_field")}</p>
+            )}
           </div>
         </div>
 
@@ -709,26 +1130,34 @@ function AddCustomModelForm({
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[10px] text-muted-foreground">{t("settings.input_price")}</label>
+            <label className="text-[10px] text-muted-foreground">{t("settings.input_price")} <span className="text-red-500">*</span></label>
             <Input
-              className="h-7 text-xs"
+              className={`h-7 text-xs ${touched && !inputValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               type="number"
               step="0.01"
+              min="0"
               value={form.inputPerMillion}
               onChange={(e) => setForm({ ...form, inputPerMillion: e.target.value })}
               placeholder={t("settings.price_placeholder")}
             />
+            {touched && !inputValid && (
+              <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+            )}
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground">{t("settings.output_price")}</label>
+            <label className="text-[10px] text-muted-foreground">{t("settings.output_price")} <span className="text-red-500">*</span></label>
             <Input
-              className="h-7 text-xs"
+              className={`h-7 text-xs ${touched && !outputValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               type="number"
               step="0.01"
+              min="0"
               value={form.outputPerMillion}
               onChange={(e) => setForm({ ...form, outputPerMillion: e.target.value })}
               placeholder={t("settings.price_placeholder")}
             />
+            {touched && !outputValid && (
+              <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+            )}
           </div>
         </div>
 
@@ -736,37 +1165,71 @@ function AddCustomModelForm({
           <div>
             <label className="text-[10px] text-muted-foreground">{t("settings.cache_write_price")}</label>
             <Input
-              className="h-7 text-xs"
+              className={`h-7 text-xs ${touched && !cacheWriteValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               type="number"
               step="0.01"
+              min="0"
               value={form.cacheWritePerMillion}
               onChange={(e) => setForm({ ...form, cacheWritePerMillion: e.target.value })}
               placeholder={t("common.optional")}
             />
+            {touched && !cacheWriteValid && (
+              <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+            )}
           </div>
           <div>
             <label className="text-[10px] text-muted-foreground">{t("settings.cache_read_price")}</label>
             <Input
-              className="h-7 text-xs"
+              className={`h-7 text-xs ${touched && !cacheReadValid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               type="number"
               step="0.01"
+              min="0"
               value={form.cacheReadPerMillion}
               onChange={(e) => setForm({ ...form, cacheReadPerMillion: e.target.value })}
               placeholder={t("common.optional")}
             />
+            {touched && !cacheReadValid && (
+              <p className="text-[10px] text-red-500 mt-0.5">{t("settings.invalid_price")}</p>
+            )}
           </div>
         </div>
 
         <div className="flex gap-2 pt-1">
-          <Button size="sm" className="h-7 text-xs" onClick={handleSave}>
+          <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={touched && !formValid}>
             {t("settings.save")}
           </Button>
+          {showSkip && onSkip && (
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onSkip}>
+              {t("settings.skip")}
+            </Button>
+          )}
           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>
             {t("common.cancel")}
           </Button>
         </div>
       </CardContent>
     </Card>
+
+    {/* Duplicate model ID confirmation dialog */}
+    <Dialog open={showDupConfirm} onOpenChange={setShowDupConfirm}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t("settings.model_exists_dialog_title")}</DialogTitle>
+          <DialogDescription>
+            {t("settings.model_exists_confirm", { modelId: form.modelId.trim() })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="mt-2">
+          <Button variant="outline" size="sm" onClick={() => setShowDupConfirm(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button size="sm" onClick={doSave}>
+            {t("settings.confirm_overwrite")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

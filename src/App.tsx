@@ -9,13 +9,17 @@ import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { AnnouncementBanner } from "@/components/announcement/AnnouncementBanner";
 import { useRemoteServices } from "@/hooks/useUpdater";
 import { useAppStore } from "@/stores/appStore";
-import { getSettings, rebuildTrayMenu } from "@/lib/tauri";
+import { getSettings, rebuildTrayMenu, getModelsMissingPrices, type MissingModelPrice } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 
 type Page = "dashboard" | "settings";
+export type SettingsTab = "general" | "data_source" | "pricing" | "budget" | "privacy" | "about";
 
 function App() {
   const [page, setPage] = useState<Page>("dashboard");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab | undefined>(undefined);
+  const [pricingPrefillSignal, setPricingPrefillSignal] = useState(0);
+  const [missingModels, setMissingModels] = useState<MissingModelPrice[]>([]);
   const [theme, setTheme] = useState<string>("system");
   const { t, i18n } = useTranslation();
   const initEventListeners = useAppStore((s) => s.initEventListeners);
@@ -24,8 +28,19 @@ function App() {
   useRemoteServices();
 
   useEffect(() => {
-    initEventListeners();
+    let cleanup: (() => void) | undefined;
+    initEventListeners().then((fn) => { cleanup = fn; });
+    return () => { cleanup?.(); };
   }, [initEventListeners]);
+
+  // Refresh missing model prices (shared between Dashboard banner and Settings pricing tab)
+  const refreshMissing = useCallback(() => {
+    getModelsMissingPrices().then(setMissingModels).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshMissing();
+  }, [refreshMissing]);
 
   // Load theme + language from settings on mount
   useEffect(() => {
@@ -94,12 +109,24 @@ function App() {
     }
   }, [theme]);
 
-  // Re-read theme when switching to settings page (user may have changed it)
+  // Re-read theme when switching to dashboard page (user may have changed it)
   const handlePageChange = useCallback((p: Page) => {
     setPage(p);
     if (p === "dashboard") {
       getSettings().then((s) => setTheme(s.theme)).catch(() => {});
     }
+    if (p !== "settings") {
+      setSettingsInitialTab(undefined);
+    }
+  }, []);
+
+  // Navigate to settings with a specific tab pre-selected
+  const navigateToSettings = useCallback((tab: SettingsTab) => {
+    setSettingsInitialTab(tab);
+    if (tab === "pricing") {
+      setPricingPrefillSignal((s) => s + 1);
+    }
+    setPage("settings");
   }, []);
 
   // Tray popup visibility state
@@ -182,8 +209,8 @@ function App() {
       )}
 
       {/* Page content */}
-      {page === "dashboard" && <Dashboard />}
-      {page === "settings" && <Settings onSettingsSaved={handleSettingsSaved} />}
+      {page === "dashboard" && <Dashboard onNavigateToSettings={navigateToSettings} missingModels={missingModels} />}
+      {page === "settings" && <Settings onSettingsSaved={handleSettingsSaved} initialTab={settingsInitialTab} missingModels={missingModels} refreshMissing={refreshMissing} pricingPrefillSignal={pricingPrefillSignal} />}
 
       {/* Update dialog (triggered by background update checker) */}
       <UpdateDialog />

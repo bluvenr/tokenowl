@@ -2,7 +2,7 @@ use rusqlite::Connection;
 use crate::error::AppResult;
 
 /// Current schema version — bump this when adding new migrations
-pub const CURRENT_SCHEMA_VERSION: i64 = 1;
+pub const CURRENT_SCHEMA_VERSION: i64 = 3;
 
 /// Ensure the schema_version table exists and return the current version (0 if none)
 fn ensure_schema_version_table(conn: &Connection) -> AppResult<i64> {
@@ -35,8 +35,17 @@ pub fn run_all(conn: &Connection) -> AppResult<()> {
         set_schema_version(conn, 1)?;
     }
 
-    // Future migrations go here:
-    // if current_version < 2 { run_v2(conn)?; set_schema_version(conn, 2)?; }
+    // Version 2: add created_at to custom_prices for stable sort order
+    if current_version < 2 {
+        run_v2(conn)?;
+        set_schema_version(conn, 2)?;
+    }
+
+    // Version 3: add reasoning_tokens column + fix codex_cli zero-token bug
+    if current_version < 3 {
+        run_v3(conn)?;
+        set_schema_version(conn, 3)?;
+    }
 
     Ok(())
 }
@@ -135,5 +144,35 @@ fn run_v1(conn: &Connection) -> AppResult<()> {
         ",
     )?;
 
+    Ok(())
+}
+
+fn run_v2(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "ALTER TABLE custom_prices ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'));",
+    )?;
+    Ok(())
+}
+
+/// v3: Add reasoning_tokens column and fix codex_cli zero-token bug.
+/// The codex_cli collector had a deserialization nesting mismatch that caused
+/// all token fields to be stored as 0. We delete those broken records and
+/// reset file_offsets so the JSONL files are re-scanned from the beginning.
+fn run_v3(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "
+        -- Add reasoning_tokens column to usage_records
+        ALTER TABLE usage_records ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0;
+
+        -- Add reasoning_per_million column to custom_prices
+        ALTER TABLE custom_prices ADD COLUMN reasoning_per_million REAL;
+
+        -- Delete codex_cli records with zero tokens (caused by deserialization bug)
+        DELETE FROM usage_records WHERE source = 'codex_cli' AND total_tokens = 0;
+
+        -- Reset file offsets for codex_cli so files are fully re-scanned
+        DELETE FROM file_offsets WHERE source = 'codex_cli';
+        ",
+    )?;
     Ok(())
 }

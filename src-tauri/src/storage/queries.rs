@@ -20,8 +20,9 @@ impl Database {
                 "INSERT OR IGNORE INTO usage_records
                     (id, source, session_id, timestamp, model,
                      input_tokens, output_tokens, cache_creation_tokens,
-                     cache_read_tokens, total_tokens, cost_usd, project_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                     cache_read_tokens, total_tokens, reasoning_tokens,
+                     cost_usd, project_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     r.id,
                     r.source.as_str(),
@@ -33,6 +34,7 @@ impl Database {
                     r.tokens.cache_creation_tokens,
                     r.tokens.cache_read_tokens,
                     r.tokens.total_tokens,
+                    r.tokens.reasoning_tokens,
                     r.cost_usd,
                     r.project_path,
                 ],
@@ -86,8 +88,9 @@ impl Database {
                 "INSERT OR IGNORE INTO usage_records
                     (id, source, session_id, timestamp, model,
                      input_tokens, output_tokens, cache_creation_tokens,
-                     cache_read_tokens, total_tokens, cost_usd, project_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                     cache_read_tokens, total_tokens, reasoning_tokens,
+                     cost_usd, project_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     r.id,
                     r.source.as_str(),
@@ -99,6 +102,7 @@ impl Database {
                     r.tokens.cache_creation_tokens,
                     r.tokens.cache_read_tokens,
                     r.tokens.total_tokens,
+                    r.tokens.reasoning_tokens,
                     r.cost_usd,
                     r.project_path,
                 ],
@@ -143,6 +147,7 @@ impl Database {
                     COALESCE(SUM(total_tokens), 0),
                     COALESCE(SUM(input_tokens), 0),
                     COALESCE(SUM(output_tokens), 0),
+                    COALESCE(SUM(reasoning_tokens), 0),
                     COUNT(DISTINCT source || '|' || session_id)
              FROM usage_records
              WHERE timestamp >= ?1",
@@ -153,7 +158,8 @@ impl Database {
                     total_tokens: row.get::<_, i64>(1)? as u64,
                     input_tokens: row.get::<_, i64>(2)? as u64,
                     output_tokens: row.get::<_, i64>(3)? as u64,
-                    session_count: row.get::<_, i64>(4)? as u64,
+                    reasoning_tokens: row.get::<_, i64>(4)? as u64,
+                    session_count: row.get::<_, i64>(5)? as u64,
                 })
             },
         )?;
@@ -222,7 +228,8 @@ impl Database {
                     COALESCE(SUM(cost_usd), 0),
                     COALESCE(SUM(total_tokens), 0),
                     COALESCE(SUM(input_tokens), 0),
-                    COALESCE(SUM(output_tokens), 0)
+                    COALESCE(SUM(output_tokens), 0),
+                    COALESCE(SUM(reasoning_tokens), 0)
              FROM usage_records
              WHERE timestamp >= ?1
              GROUP BY model, source
@@ -238,6 +245,7 @@ impl Database {
                     total_tokens: row.get::<_, i64>(3)? as u64,
                     input_tokens: row.get::<_, i64>(4)? as u64,
                     output_tokens: row.get::<_, i64>(5)? as u64,
+                    reasoning_tokens: row.get::<_, i64>(6)? as u64,
                 })
             })?
             .filter_map(|r| r.ok())
@@ -348,7 +356,7 @@ impl Database {
         let mut stmt = conn.prepare(
             "SELECT id, source, session_id, timestamp, model,
                     input_tokens, output_tokens, cache_creation_tokens,
-                    cache_read_tokens, total_tokens, project_path
+                    cache_read_tokens, total_tokens, reasoning_tokens, project_path
              FROM usage_records
              WHERE cost_usd IS NULL
              ORDER BY timestamp DESC
@@ -377,14 +385,33 @@ impl Database {
                         cache_creation_tokens: row.get::<_, i64>(7)? as u64,
                         cache_read_tokens: row.get::<_, i64>(8)? as u64,
                         total_tokens: row.get::<_, i64>(9)? as u64,
+                        reasoning_tokens: row.get::<_, i64>(10)? as u64,
                     },
                     cost_usd: None,
-                    project_path: row.get(10)?,
+                    project_path: row.get(11)?,
                 })
             })?
             .filter_map(|r| r.ok())
             .collect();
 
+        Ok(result)
+    }
+
+    /// Get distinct models that have records but no price configured
+    pub fn get_models_without_prices(&self) -> AppResult<Vec<MissingModelPrice>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT model, source FROM usage_records WHERE cost_usd IS NULL ORDER BY model",
+        )?;
+        let result = stmt
+            .query_map([], |row| {
+                Ok(MissingModelPrice {
+                    model: row.get(0)?,
+                    source: row.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
         Ok(result)
     }
 
@@ -593,8 +620,10 @@ impl Database {
         let mut stmt = conn.prepare(
             "SELECT model_id, COALESCE(display_name, model_id), COALESCE(source, ''),
                     input_per_million, output_per_million,
-                    cache_write_per_million, cache_read_per_million
-             FROM custom_prices ORDER BY model_id",
+                    cache_write_per_million, cache_read_per_million,
+                    reasoning_per_million,
+                    created_at
+             FROM custom_prices ORDER BY created_at DESC, model_id",
         )?;
 
         let result = stmt
@@ -607,7 +636,10 @@ impl Database {
                     output_per_million: row.get(4)?,
                     cache_write_per_million: row.get(5)?,
                     cache_read_per_million: row.get(6)?,
+                    reasoning_per_million: row.get(7)?,
                     price_source: "custom".to_string(),
+                    has_default: false, // computed later in merge_prices
+                    created_at: row.get(8)?,
                 })
             })?
             .filter_map(|r| r.ok())
@@ -618,11 +650,21 @@ impl Database {
 
     pub fn upsert_custom_price(&self, price: &ModelPricing) -> AppResult<()> {
         let conn = self.conn()?;
+        // Use ON CONFLICT to preserve created_at on update
         conn.execute(
-            "INSERT OR REPLACE INTO custom_prices
+            "INSERT INTO custom_prices
                 (model_id, display_name, source, input_per_million, output_per_million,
-                 cache_write_per_million, cache_read_per_million)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                 cache_write_per_million, cache_read_per_million, reasoning_per_million,
+                 created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))
+             ON CONFLICT(model_id) DO UPDATE SET
+                display_name = excluded.display_name,
+                source = excluded.source,
+                input_per_million = excluded.input_per_million,
+                output_per_million = excluded.output_per_million,
+                cache_write_per_million = excluded.cache_write_per_million,
+                cache_read_per_million = excluded.cache_read_per_million,
+                reasoning_per_million = excluded.reasoning_per_million",
             params![
                 price.model_id,
                 price.display_name,
@@ -631,6 +673,7 @@ impl Database {
                 price.output_per_million,
                 price.cache_write_per_million,
                 price.cache_read_per_million,
+                price.reasoning_per_million,
             ],
         )?;
         Ok(())
@@ -640,6 +683,29 @@ impl Database {
         let conn = self.conn()?;
         conn.execute("DELETE FROM custom_prices WHERE model_id = ?1", params![model_id])?;
         Ok(())
+    }
+
+    /// Nullify cost_usd for all usage records of a specific model,
+    /// so that backfill_costs will recalculate them with the latest price.
+    /// Returns the number of affected records.
+    pub fn invalidate_costs_for_model(&self, model_id: &str) -> AppResult<u64> {
+        let conn = self.conn()?;
+        let count = conn.execute(
+            "UPDATE usage_records SET cost_usd = NULL WHERE model = ?1",
+            params![model_id],
+        )?;
+        Ok(count as u64)
+    }
+
+    /// Count usage records for a specific model
+    pub fn count_usage_records_for_model(&self, model_id: &str) -> AppResult<u64> {
+        let conn = self.conn()?;
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM usage_records WHERE model = ?1",
+            params![model_id],
+            |row| row.get(0),
+        )?;
+        Ok(count as u64)
     }
 
     // ─── Data Export ─────────────────────────────────────────────────
@@ -654,7 +720,8 @@ impl Database {
         let mut stmt = conn.prepare(
             "SELECT id, source, session_id, timestamp, model,
                     input_tokens, output_tokens, cache_creation_tokens,
-                    cache_read_tokens, total_tokens, cost_usd, project_path
+                    cache_read_tokens, total_tokens, reasoning_tokens,
+                    cost_usd, project_path
              FROM usage_records
              WHERE timestamp >= ?1
              ORDER BY timestamp ASC",
@@ -682,9 +749,10 @@ impl Database {
                         cache_creation_tokens: row.get::<_, i64>(7)? as u64,
                         cache_read_tokens: row.get::<_, i64>(8)? as u64,
                         total_tokens: row.get::<_, i64>(9)? as u64,
+                        reasoning_tokens: row.get::<_, i64>(10)? as u64,
                     },
-                    cost_usd: row.get(10)?,
-                    project_path: row.get(11)?,
+                    cost_usd: row.get(11)?,
+                    project_path: row.get(12)?,
                 })
             })?
             .filter_map(|r| r.ok())

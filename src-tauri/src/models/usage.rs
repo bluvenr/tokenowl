@@ -22,6 +22,8 @@ pub struct TokenUsage {
     pub cache_creation_tokens: u64,
     pub cache_read_tokens: u64,
     pub total_tokens: u64,
+    #[serde(default)]
+    pub reasoning_tokens: u64,
 }
 
 /// Supported data sources
@@ -87,6 +89,7 @@ pub struct UsageSummary {
     pub total_tokens: u64,
     pub input_tokens: u64,
     pub output_tokens: u64,
+    pub reasoning_tokens: u64,
     pub session_count: u64,
 }
 
@@ -111,6 +114,7 @@ pub struct ModelUsage {
     pub total_tokens: u64,
     pub input_tokens: u64,
     pub output_tokens: u64,
+    pub reasoning_tokens: u64,
 }
 
 /// Trend data point for charts
@@ -133,4 +137,12 @@ pub struct SessionSummary {
     pub total_tokens: u64,
     pub timestamp: String,
     pub project_path: Option<String>,
+}
+
+/// A model that has usage records but no price configured
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MissingModelPrice {
+    pub model: String,
+    pub source: String,
 }

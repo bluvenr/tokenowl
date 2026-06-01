@@ -2,6 +2,7 @@ use tauri::State;
 
 use crate::commands::usage::DbState;
 use crate::commands::remote::RemoteStateManaged;
+use crate::collectors::CollectorManager;
 use crate::models::settings::{AppSettings, ModelPricing, SourceConfig};
 use crate::remote::download_source::update_shared;
 
@@ -84,7 +85,7 @@ pub fn delete_custom_price(db: State<'_, DbState>, model_id: String) -> Result<(
     db.delete_custom_price(&model_id).map_err(|e| e.to_string())
 }
 
-/// Reset a custom price back to builtin/remote defaults (same as delete)
+/// Reset a custom price back to remote/cached defaults (same as delete)
 #[tauri::command]
 pub fn reset_custom_price(db: State<'_, DbState>, model_id: String) -> Result<(), String> {
     db.delete_custom_price(&model_id).map_err(|e| e.to_string())
@@ -95,9 +96,23 @@ pub fn get_all_prices(
     db: State<'_, DbState>,
     remote: State<'_, RemoteStateManaged>,
 ) -> Result<Vec<ModelPricing>, String> {
-    let builtin = crate::pricing::registry::load_builtin_prices();
+    let cached = crate::pricing::registry::load_cached_prices();
     let custom = db.get_custom_prices().map_err(|e| e.to_string())?;
     let remote_prices = remote.price_syncer.get_cached();
-    let merged = crate::pricing::registry::merge_prices(&builtin, &remote_prices, &custom);
+    let merged = crate::pricing::registry::merge_prices(&cached, &remote_prices, &custom);
     Ok(merged)
+}
+
+/// Recalculate cost_usd for all usage records of a specific model
+/// using the current (updated) price. Returns number of affected records.
+#[tauri::command]
+pub fn recalculate_costs(db: State<'_, DbState>, model_id: String) -> Result<u64, String> {
+    let manager = CollectorManager::new(db.inner().clone());
+    manager.recalculate_model_costs(&model_id).map_err(|e| e.to_string())
+}
+
+/// Count usage records for a specific model (used to decide whether to show recalc dialog)
+#[tauri::command]
+pub fn count_model_records(db: State<'_, DbState>, model_id: String) -> Result<u64, String> {
+    db.count_usage_records_for_model(&model_id).map_err(|e| e.to_string())
 }

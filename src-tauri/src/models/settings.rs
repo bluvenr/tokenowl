@@ -43,7 +43,15 @@ pub struct ModelPricing {
     pub cache_write_per_million: Option<f64>,
     pub cache_read_per_million: Option<f64>,
     #[serde(default)]
-    pub price_source: String, // "builtin" | "remote" | "custom"
+    pub reasoning_per_million: Option<f64>,
+    #[serde(default)]
+    pub price_source: String, // "remote" | "cached" | "custom"
+    /// Whether a non-custom fallback exists (remote / cached)
+    #[serde(default)]
+    pub has_default: bool,
+    /// Creation timestamp for custom prices (ISO 8601)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
 }
 
 /// Data source configuration

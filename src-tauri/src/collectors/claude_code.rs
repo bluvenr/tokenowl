@@ -20,21 +20,29 @@ impl ClaudeCodeCollector {
     }
 }
 
-/// Raw JSONL line from Claude Code
+/// The `message` wrapper inside a Claude Code JSONL line.
+/// For `type: "assistant"` events, `model` and `usage` live here.
+#[derive(Deserialize)]
+struct ClaudeCodeMessage {
+    model: Option<String>,
+    usage: Option<ClaudeCodeUsage>,
+}
+
+/// Raw JSONL line from Claude Code.
+/// Model and usage data are nested inside the `message` field, NOT at top level.
 #[derive(Deserialize)]
 struct ClaudeCodeJsonlLine {
     #[serde(rename = "type")]
-    _event_type: Option<String>,
-    model: Option<String>,
-    usage: Option<ClaudeCodeUsage>,
-    #[serde(rename = "costUSD")]
-    cost_usd: Option<f64>,
+    event_type: Option<String>,
+    message: Option<ClaudeCodeMessage>,
     timestamp: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct ClaudeCodeUsage {
+    #[serde(default)]
     input_tokens: u64,
+    #[serde(default)]
     output_tokens: u64,
     #[serde(default)]
     cache_creation_input_tokens: u64,
@@ -78,22 +86,37 @@ impl Collector for ClaudeCodeCollector {
     fn full_scan(&self) -> AppResult<Vec<UsageRecord>> {
         let mut records = Vec::new();
         if !self.base_dir.exists() {
+            log::info!("[Claude Code] Base dir not found: {:?}", self.base_dir);
             return Ok(records);
         }
+        let mut file_count = 0u32;
         for entry in walkdir::WalkDir::new(&self.base_dir)
             .into_iter()
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
             if path.extension().map_or(false, |ext| ext == "jsonl") {
+                file_count += 1;
                 match self.parse_file(path) {
-                    Ok(file_records) => records.extend(file_records),
+                    Ok(file_records) => {
+                        log::info!(
+                            "[Claude Code] Parsed {:?}: {} records",
+                            path.file_name().unwrap_or_default(),
+                            file_records.len()
+                        );
+                        records.extend(file_records);
+                    }
                     Err(e) => {
                         log::warn!("Failed to parse {:?}: {}", path, e);
                     }
                 }
             }
         }
+        log::info!(
+            "[Claude Code] Full scan: {} files found, {} total records",
+            file_count,
+            records.len()
+        );
         Ok(records)
     }
 
@@ -120,35 +143,42 @@ impl Collector for ClaudeCodeCollector {
 
             let trimmed = line_buf.trim_end_matches(|c| c == '\n' || c == '\r');
             if let Ok(parsed) = serde_json::from_str::<ClaudeCodeJsonlLine>(trimmed) {
-                if let (Some(model), Some(usage)) = (parsed.model, parsed.usage) {
-                    let ts = parse_timestamp(parsed.timestamp.as_deref());
-                    let id = super::make_record_id(
-                        &DataSource::ClaudeCode,
-                        &session_id,
-                        &ts.to_rfc3339(),
-                        &model,
-                        &offset_before.to_string(),
-                    );
-                    let record = UsageRecord {
-                        id,
-                        source: DataSource::ClaudeCode,
-                        session_id: session_id.clone(),
-                        timestamp: ts,
-                        model,
-                        tokens: TokenUsage {
-                            input_tokens: usage.input_tokens,
-                            output_tokens: usage.output_tokens,
-                            cache_creation_tokens: usage.cache_creation_input_tokens,
-                            cache_read_tokens: usage.cache_read_input_tokens,
-                            total_tokens: usage.input_tokens
-                                + usage.output_tokens
-                                + usage.cache_creation_input_tokens
-                                + usage.cache_read_input_tokens,
-                        },
-                        cost_usd: parsed.cost_usd,
-                        project_path: extract_project_path(file_path),
-                    };
-                    records.push(record);
+                // Only process "assistant" events — that's where model + usage live
+                if parsed.event_type.as_deref() != Some("assistant") {
+                    continue;
+                }
+                if let Some(msg) = parsed.message {
+                    if let (Some(model), Some(usage)) = (msg.model, msg.usage) {
+                        let ts = parse_timestamp(parsed.timestamp.as_deref());
+                        let id = super::make_record_id(
+                            &DataSource::ClaudeCode,
+                            &session_id,
+                            &ts.to_rfc3339(),
+                            &model,
+                            &offset_before.to_string(),
+                        );
+                        let record = UsageRecord {
+                            id,
+                            source: DataSource::ClaudeCode,
+                            session_id: session_id.clone(),
+                            timestamp: ts,
+                            model,
+                            tokens: TokenUsage {
+                                input_tokens: usage.input_tokens,
+                                output_tokens: usage.output_tokens,
+                                cache_creation_tokens: usage.cache_creation_input_tokens,
+                                cache_read_tokens: usage.cache_read_input_tokens,
+                                total_tokens: usage.input_tokens
+                                    + usage.output_tokens
+                                    + usage.cache_creation_input_tokens
+                                    + usage.cache_read_input_tokens,
+                                reasoning_tokens: 0,
+                            },
+                            cost_usd: None,
+                            project_path: extract_project_path(file_path),
+                        };
+                        records.push(record);
+                    }
                 }
             }
         }
@@ -172,10 +202,9 @@ fn extract_session_id(path: &std::path::Path) -> String {
 }
 
 /// Extract project path from the directory structure
+/// ~/.claude/projects/<project-hash>/<session>.jsonl
 fn extract_project_path(path: &std::path::Path) -> Option<String> {
-    // ~/.claude/projects/<project-hash>/sessions/<session>.jsonl
     path.parent()
-        .and_then(|p| p.parent())
         .and_then(|p| p.file_name())
         .map(|s| s.to_string_lossy().to_string())
 }

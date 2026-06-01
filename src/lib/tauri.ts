@@ -8,6 +8,7 @@ export interface UsageSummary {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number;
   sessionCount: number;
 }
 
@@ -26,6 +27,7 @@ export interface ModelUsage {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number;
 }
 
 export interface TrendPoint {
@@ -82,7 +84,10 @@ export interface ModelPricing {
   outputPerMillion: number;
   cacheWritePerMillion: number | null;
   cacheReadPerMillion: number | null;
+  reasoningPerMillion?: number | null;
   priceSource: string;
+  hasDefault?: boolean;
+  createdAt?: string | null;
 }
 
 export interface SourceConfig {
@@ -205,6 +210,12 @@ export const resetCustomPrice = (modelId: string) =>
 export const deleteCustomPrice = (modelId: string) =>
   invoke<void>("delete_custom_price", { modelId });
 
+export const recalculateCosts = (modelId: string) =>
+  invoke<number>("recalculate_costs", { modelId });
+
+export const countModelRecords = (modelId: string) =>
+  invoke<number>("count_model_records", { modelId });
+
 // ─── Export API ─────────────────────────────────────────────────────
 
 export const exportUsageCsv = (period: string) =>
@@ -220,6 +231,14 @@ export const rescan = () =>
 
 export const getSourceStatus = () =>
   invoke<SourceStatus[]>("get_source_status");
+
+export interface MissingModelPrice {
+  model: string;
+  source: string;
+}
+
+export const getModelsMissingPrices = () =>
+  invoke<MissingModelPrice[]>("get_models_without_prices");
 
 // ─── Notification API ───────────────────────────────────────────────
 

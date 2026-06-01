@@ -9,7 +9,7 @@ use crate::error::AppResult;
 use crate::models::usage::{DataSource, UsageRecord};
 use crate::models::settings::ModelPricing;
 use crate::pricing::calculator::calculate_cost;
-use crate::pricing::registry::{load_builtin_prices, merge_prices};
+use crate::pricing::registry::{load_cached_prices, merge_prices};
 use crate::storage::database::Database;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -250,6 +250,17 @@ impl CollectorManager {
         Ok(total)
     }
 
+    /// Recalculate costs for a specific model: nullify existing costs then backfill
+    /// with the current (updated) price. Returns the number of affected records.
+    pub fn recalculate_model_costs(&self, model_id: &str) -> AppResult<u64> {
+        let count = self.db.invalidate_costs_for_model(model_id)?;
+        if count > 0 {
+            self.backfill_costs()?;
+            log::info!("Recalculated costs for {} records of model '{}'", count, model_id);
+        }
+        Ok(count)
+    }
+
     /// Check if a path belongs to any collector's file extensions
     pub fn matches_any_collector(&self, path: &std::path::Path) -> bool {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
@@ -332,15 +343,15 @@ impl CollectorManager {
         }
     }
 
-    /// Build a merged price map (builtin + remote + custom) for cost calculation
+    /// Build a merged price map (cached + remote + custom) for cost calculation
     fn build_price_map_with_remote(&self, remote: &[ModelPricing]) -> HashMap<String, ModelPricing> {
-        let builtin = load_builtin_prices();
+        let cached = load_cached_prices();
         let custom = self.db.get_custom_prices().unwrap_or_default();
-        let merged = merge_prices(&builtin, remote, &custom);
+        let merged = merge_prices(&cached, remote, &custom);
         merged.into_iter().map(|p| (p.model_id.clone(), p)).collect()
     }
 
-    /// Build a merged price map (builtin + custom) for cost calculation
+    /// Build a merged price map (cached + custom) for cost calculation
     fn build_price_map(&self) -> HashMap<String, ModelPricing> {
         self.build_price_map_with_remote(&[])
     }

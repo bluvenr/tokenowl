@@ -102,6 +102,9 @@ impl PriceSyncer {
     }
 
     fn update_cache(&self, prices: Vec<ModelPricing>) {
+        // Save to local file cache for next startup
+        crate::pricing::registry::save_cached_prices(&prices);
+
         match self.cache.lock() {
             Ok(mut cache) => {
                 *cache = Some(CachedPrices {

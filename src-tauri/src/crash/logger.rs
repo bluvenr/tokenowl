@@ -28,7 +28,7 @@ pub struct CrashLogger {
 
 impl CrashLogger {
     pub fn new() -> Option<Self> {
-        let log_dir = dirs::data_dir()?.join("tokenowl").join("crash_logs");
+        let log_dir = dirs::data_dir()?.join(crate::APP_DATA_DIR).join("crash_logs");
         fs::create_dir_all(&log_dir).ok()?;
         Some(Self {
             log_dir,

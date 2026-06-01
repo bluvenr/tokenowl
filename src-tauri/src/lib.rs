@@ -23,6 +23,9 @@ use commands::remote::RemoteState;
 const GITHUB_OWNER: &str = "bluvenr";
 const GITHUB_REPO: &str = "tokenowl";
 
+/// Application data directory name (matches tauri.conf.json identifier)
+pub const APP_DATA_DIR: &str = "com.virapi.tokenowl";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize logging
@@ -203,6 +206,12 @@ pub fn run() {
             if watcher_active {
                 if let Err(e) = file_watcher.start_event_loop(manager, app_handle.clone()) {
                     log::error!("Failed to start watcher event loop: {}", e);
+                } else {
+                    // Keep file_watcher alive for the app's lifetime by storing it
+                    // in Tauri's managed state. Without this, `file_watcher` is dropped
+                    // at the end of setup(), which drops the RecommendedWatcher and its
+                    // channel sender — causing the event loop thread to exit immediately.
+                    app.manage(std::sync::Mutex::new(file_watcher));
                 }
             }
 
@@ -319,9 +328,12 @@ pub fn run() {
             commands::settings::delete_custom_price,
             commands::settings::reset_custom_price,
             commands::settings::get_all_prices,
+            commands::settings::recalculate_costs,
+            commands::settings::count_model_records,
             // Scan
             commands::scan::rescan,
             commands::scan::get_source_status,
+            commands::scan::get_models_without_prices,
             // Remote services
             commands::remote::get_app_version,
             commands::remote::check_for_update,

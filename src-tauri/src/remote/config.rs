@@ -154,6 +154,6 @@ impl RemoteConfigManager {
 
     /// Get the local cache file path
     pub fn cache_path() -> Option<PathBuf> {
-        dirs::data_dir().map(|d| d.join("tokenowl").join("remote_config_cache.json"))
+        dirs::data_dir().map(|d| d.join(crate::APP_DATA_DIR).join("remote_config_cache.json"))
     }
 }

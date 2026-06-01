@@ -29,7 +29,7 @@ impl Database {
     fn db_path() -> AppResult<PathBuf> {
         let data_dir = dirs::data_dir()
             .ok_or_else(|| crate::error::AppError::Config("Cannot get data directory".into()))?;
-        Ok(data_dir.join("tokenowl").join("tokenowl.db"))
+        Ok(data_dir.join(crate::APP_DATA_DIR).join("tokenowl.db"))
     }
 
     fn run_migrations(&self) -> AppResult<()> {

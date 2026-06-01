@@ -54,6 +54,13 @@
   label:has(> input[type="radio"]) {
     cursor: pointer;
   }
+  /* Remove focus outline from Recharts containers on click */
+  .recharts-responsive-container:focus,
+  .recharts-responsive-container:focus-visible,
+  .recharts-wrapper:focus,
+  .recharts-wrapper:focus-visible {
+    outline: none;
+  }
 }
 
 /* Dark mode - class based (html.dark targets <html> directly) */

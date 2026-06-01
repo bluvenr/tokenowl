@@ -132,36 +132,31 @@ export function ToastContainer() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-1.5 max-w-xs">
       {toasts.map((toast) => (
-        <Card
+        <div
           key={toast.id}
-          className={`border shadow-lg animate-in slide-in-from-bottom-2 ${typeStyles[toast.type] || typeStyles.info}`}
+          className={`rounded-md border shadow-md px-3 py-1.5 flex items-center gap-2 animate-in slide-in-from-bottom-2 ${typeStyles[toast.type] || typeStyles.info}`}
         >
-          <CardContent className="p-3">
-            <div className="flex items-start gap-2">
-              <div className="flex-1">
-                <div className="text-sm font-medium">{toast.title}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{toast.message}</div>
-              </div>
-              <button
-                aria-label={t("announcement.dismiss")}
-                onClick={() => {
-                  // Clear the auto-dismiss timer when manually dismissed
-                  const timer = timersRef.current.get(toast.id);
-                  if (timer) {
-                    clearTimeout(timer);
-                    timersRef.current.delete(toast.id);
-                  }
-                  setToasts((prev) => prev.filter((t) => t.id !== toast.id));
-                }}
-                className="text-muted-foreground hover:text-foreground text-xs px-1"
-              >
-                ×
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="flex-1 min-w-0 text-xs leading-snug">
+            <span className="font-medium">{toast.title}</span>
+            {toast.message && <span className="text-muted-foreground ml-1.5">{toast.message}</span>}
+          </div>
+          <button
+            aria-label={t("announcement.dismiss")}
+            onClick={() => {
+              const timer = timersRef.current.get(toast.id);
+              if (timer) {
+                clearTimeout(timer);
+                timersRef.current.delete(toast.id);
+              }
+              setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+            }}
+            className="text-muted-foreground hover:text-foreground text-sm leading-none shrink-0"
+          >
+            ×
+          </button>
+        </div>
       ))}
     </div>
   );

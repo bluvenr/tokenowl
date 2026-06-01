@@ -41,7 +41,7 @@ interface AppState {
   refreshTrend: () => Promise<void>;
 
   // Register event listeners (call once on app mount)
-  initEventListeners: () => Promise<void>;
+  initEventListeners: () => Promise<(() => void) | undefined>;
   listenersRegistered: boolean;
 }
 
@@ -97,18 +97,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initEventListeners: async () => {
     const { listenersRegistered } = get();
-    if (listenersRegistered) return;
+    if (listenersRegistered) return undefined;
 
     set({ listenersRegistered: true });
 
     // Listen for file watcher data changes (real-time incremental updates)
-    await onDataChanged(() => {
+    const unlistenData = await onDataChanged(() => {
       get().refresh();
     });
 
     // Listen for rescan requests from tray menu
-    await onRescanRequested(() => {
+    const unlistenRescan = await onRescanRequested(() => {
       get().refresh();
     });
+
+    // Return cleanup function
+    return () => {
+      unlistenData();
+      unlistenRescan();
+      set({ listenersRegistered: false });
+    };
   },
 }));

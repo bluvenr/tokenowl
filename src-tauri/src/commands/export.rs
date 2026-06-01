@@ -16,10 +16,10 @@ pub fn export_usage_csv(db: State<'_, DbState>, period: String) -> Result<String
     let records = db.export_usage_records(&period).map_err(|e| e.to_string())?;
     // UTF-8 BOM for Excel compatibility
     let mut csv = String::from("\u{FEFF}");
-    csv.push_str("id,source,session_id,timestamp,model,input_tokens,output_tokens,cache_creation_tokens,cache_read_tokens,total_tokens,cost_usd,project_path\n");
+    csv.push_str("id,source,session_id,timestamp,model,input_tokens,output_tokens,cache_creation_tokens,cache_read_tokens,total_tokens,reasoning_tokens,cost_usd,project_path\n");
     for r in &records {
         csv.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             csv_field(&r.id),
             csv_field(r.source.as_str()),
             csv_field(&r.session_id),
@@ -30,6 +30,7 @@ pub fn export_usage_csv(db: State<'_, DbState>, period: String) -> Result<String
             r.tokens.cache_creation_tokens,
             r.tokens.cache_read_tokens,
             r.tokens.total_tokens,
+            r.tokens.reasoning_tokens,
             r.cost_usd.unwrap_or(0.0),
             csv_field(r.project_path.as_deref().unwrap_or("")),
         ));
