@@ -266,7 +266,6 @@ pub fn run() {
                             }
                         }
 
-                        use tauri::Emitter;
                         let _ = app_for_sync.emit("tokenowl:prices-synced", prices.len());
                     }
 
@@ -293,7 +292,6 @@ pub fn run() {
                     log::info!("Remote config loaded");
                     // Check for announcement
                     if let Some(announcement) = &config.announcement {
-                        use tauri::Emitter;
                         let _ = app_for_config.emit("tokenowl:announcement", announcement);
                         log::info!("Announcement: {}", announcement.title);
                     }

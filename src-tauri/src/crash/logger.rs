@@ -106,11 +106,6 @@ impl CrashLogger {
         entries
     }
 
-    /// Get the latest crash entry
-    pub fn latest_entry(&self) -> Option<CrashEntry> {
-        self.list_entries().into_iter().next()
-    }
-
     /// Delete a specific crash entry
     pub fn delete_entry(&self, id: &str) -> bool {
         let _guard = match self.io_lock.lock() {

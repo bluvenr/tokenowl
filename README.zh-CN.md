@@ -26,7 +26,7 @@ TokenOwl 是一款轻量级桌面小组件，实时追踪你的 AI 编程工具�
 - **交互式仪表盘** — 饼图、面积图、柱状图，基于 Recharts 实现
 - **实时追踪** — 文件监听器 2 秒防抖，数据即时更新
 - **预算提醒** — 支持日/周/月预算，超阈值触发系统通知
-- **费用引擎** — 三级价格合并（内置 + 远程 CDN + 用户自定义）
+- **费用引擎** — 多级价格合并（远程 CDN + 用户自定义，本地缓存）
 - **数据导出** — CSV（UTF-8 BOM，Excel 兼容）和 JSON 格式
 - **多语言** — 简体中文 / English，自动跟随系统语言
 - **远程更新** — 自动版本检查与 CDN 价格同步
@@ -95,7 +95,6 @@ pnpm tauri build
 │   │   ├── storage/        # SQLite 数据库层
 │   │   ├── updater/        # 版本更新检查
 │   │   └── watcher/        # 文件系统监听器
-│   ├── data/               # 内置模型价格
 │   └── capabilities/       # Tauri 权限配置
 ├── src/                    # React 前端
 │   ├── components/         # UI 组件
@@ -105,6 +104,7 @@ pnpm tauri build
 │   │   ├── dashboard/      # 主仪表盘（图表）
 │   │   ├── settings/       # 6 标签页设置页
 │   │   ├── tray/           # 托盘弹窗
+│   │   ├── ui/             # 共享 UI 组件
 │   │   └── update/         # 更新对话框
 │   ├── hooks/              # React Hooks
 │   ├── lib/                # 工具函数 & API 封装

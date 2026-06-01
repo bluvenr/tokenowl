@@ -132,22 +132,6 @@ export interface CrashEntry {
   context: Record<string, unknown>;
 }
 
-export interface RemoteConfig {
-  minVersion: string;
-  features: {
-    priceSync: boolean;
-    updateCheck: boolean;
-    crashReport: boolean;
-  };
-  announcement: {
-    id: string;
-    title: string;
-    message: string;
-    link?: string;
-    dismissible: boolean;
-  } | null;
-}
-
 // ─── Usage API ──────────────────────────────────────────────────────
 
 export const getUsageSummary = (period: string) =>
@@ -258,12 +242,6 @@ export const getAppVersion = () =>
 export const checkForUpdate = () =>
   invoke<UpdateInfo | null>("check_for_update");
 
-export const fetchRemoteConfig = () =>
-  invoke<RemoteConfig | null>("fetch_remote_config");
-
-export const syncRemotePrices = () =>
-  invoke<number>("sync_remote_prices");
-
 // ─── Tray API ─────────────────────────────────────────────────────────
 
 export const rebuildTrayMenu = (openText: string, rescanText: string, quitText: string) =>
@@ -273,9 +251,6 @@ export const rebuildTrayMenu = (openText: string, rescanText: string, quitText: 
 
 export const getCrashLogs = () =>
   invoke<CrashEntry[]>("get_crash_logs");
-
-export const deleteCrashLog = (id: string) =>
-  invoke<boolean>("delete_crash_log", { id });
 
 export const clearCrashLogs = () =>
   invoke<number>("clear_crash_logs");

@@ -48,27 +48,6 @@ impl Database {
         Ok(count)
     }
 
-    /// Check if a record already exists
-    pub fn record_exists(&self, id: &str) -> AppResult<bool> {
-        let conn = self.conn()?;
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM usage_records WHERE id = ?1",
-            params![id],
-            |row| row.get(0),
-        )?;
-        Ok(count > 0)
-    }
-
-    /// Delete all records for a specific session (used when re-parsing JSON files)
-    pub fn delete_session_records(&self, source: &str, session_id: &str) -> AppResult<usize> {
-        let conn = self.conn()?;
-        let count = conn.execute(
-            "DELETE FROM usage_records WHERE source = ?1 AND session_id = ?2",
-            params![source, session_id],
-        )?;
-        Ok(count)
-    }
-
     /// Atomically replace all records for a session: delete old + insert new in a transaction
     pub fn replace_session_records(
         &self,
@@ -113,17 +92,6 @@ impl Database {
         }
         tx.commit()?;
         Ok(count)
-    }
-
-    /// Count records from a specific source and session
-    pub fn count_session_records(&self, source: &str, session_id: &str) -> AppResult<u64> {
-        let conn = self.conn()?;
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM usage_records WHERE source = ?1 AND session_id = ?2",
-            params![source, session_id],
-            |row| row.get(0),
-        )?;
-        Ok(count as u64)
     }
 
     /// Count records for a specific source

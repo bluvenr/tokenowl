@@ -26,15 +26,6 @@ impl DownloadSource {
         }
     }
 
-    /// Convert back to string for DB storage
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Auto => "auto",
-            Self::GitHub => "github",
-            Self::Gitee => "gitee",
-        }
-    }
-
     /// Build jsDelivr CDN URL for a file path (mirrors GitHub repo)
     pub fn cdn_url(github_owner: &str, github_repo: &str, path: &str) -> String {
         format!(

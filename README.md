@@ -26,7 +26,7 @@ TokenOwl is a lightweight desktop widget that tracks your AI coding tool costs i
 - **Interactive Dashboard** — Pie charts, area charts, and bar charts powered by Recharts
 - **Real-time Tracking** — File watcher with 2-second debounce for instant updates
 - **Budget Alerts** — Daily/weekly/monthly budgets with system notifications
-- **Cost Engine** — Three-tier price merge (built-in + remote CDN + user custom)
+- **Cost Engine** — Multi-tier price merge (remote CDN + user custom, with local cache)
 - **Data Export** — CSV (Excel-compatible with UTF-8 BOM) and JSON formats
 - **i18n** — Chinese (Simplified) and English, auto-detects system language
 - **Remote Updates** — Automatic version checking and price sync from CDN
@@ -95,7 +95,6 @@ Build outputs are in `src-tauri/target/release/`.
 │   │   ├── storage/        # SQLite database layer
 │   │   ├── updater/        # Version update checker
 │   │   └── watcher/        # File system watcher
-│   ├── data/               # Built-in model prices
 │   └── capabilities/       # Tauri permissions
 ├── src/                    # React frontend
 │   ├── components/         # UI components
@@ -105,6 +104,7 @@ Build outputs are in `src-tauri/target/release/`.
 │   │   ├── dashboard/      # Main dashboard with charts
 │   │   ├── settings/       # 6-tab settings page
 │   │   ├── tray/           # Tray popup window
+│   │   ├── ui/             # Shared UI components
 │   │   └── update/         # Update dialog
 │   ├── hooks/              # React hooks
 │   ├── lib/                # Utilities & API wrappers

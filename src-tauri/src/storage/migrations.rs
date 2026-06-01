@@ -154,24 +154,12 @@ fn run_v2(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
-/// v3: Add reasoning_tokens column and fix codex_cli zero-token bug.
-/// The codex_cli collector had a deserialization nesting mismatch that caused
-/// all token fields to be stored as 0. We delete those broken records and
-/// reset file_offsets so the JSONL files are re-scanned from the beginning.
+/// v3: Add reasoning_tokens and reasoning_per_million columns.
 fn run_v3(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(
         "
-        -- Add reasoning_tokens column to usage_records
         ALTER TABLE usage_records ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0;
-
-        -- Add reasoning_per_million column to custom_prices
         ALTER TABLE custom_prices ADD COLUMN reasoning_per_million REAL;
-
-        -- Delete codex_cli records with zero tokens (caused by deserialization bug)
-        DELETE FROM usage_records WHERE source = 'codex_cli' AND total_tokens = 0;
-
-        -- Reset file offsets for codex_cli so files are fully re-scanned
-        DELETE FROM file_offsets WHERE source = 'codex_cli';
         ",
     )?;
     Ok(())

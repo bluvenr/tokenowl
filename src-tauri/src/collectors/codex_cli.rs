@@ -38,14 +38,11 @@ struct CodexTokenCountInfo {
     total_tokens: u64,
 }
 
-/// Wrapper for `payload.info` which nests `total_token_usage` / `last_token_usage`
+/// Wrapper for `payload.info` that nests `total_token_usage`
 #[derive(Deserialize)]
-#[allow(dead_code)]
 struct CodexTokenCountInfoWrapper {
     #[serde(default)]
     total_token_usage: Option<CodexTokenCountInfo>,
-    #[serde(default)]
-    last_token_usage: Option<CodexTokenCountInfo>,
 }
 
 /// Payload for `type: "event_msg"` where `payload.type: "token_count"`

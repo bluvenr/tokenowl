@@ -1,6 +1,5 @@
 use crate::remote::download_source::{DownloadSource, SharedDownloadSource};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -147,13 +146,4 @@ impl RemoteConfigManager {
         }
     }
 
-    /// Get the currently cached config (without fetching)
-    pub fn get_cached(&self) -> Option<RemoteConfig> {
-        self.cache.lock().ok()?.as_ref().map(|c| c.config.clone())
-    }
-
-    /// Get the local cache file path
-    pub fn cache_path() -> Option<PathBuf> {
-        dirs::data_dir().map(|d| d.join(crate::APP_DATA_DIR).join("remote_config_cache.json"))
-    }
 }

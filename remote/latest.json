@@ -1,10 +1,10 @@
 {
-  "version": "0.1.0",
-  "notes": "TokenOwl v0.1.0 — First Release\n\nAI Coding Cost Tracker 的首个公开版本。\n\n支持的 AI 编程工具：Claude Code、Codex CLI、Gemini CLI、Kimi Code、Qwen Code\n\n主要功能：\n- 系统托盘小组件，实时显示费用摘要\n- 交互式仪表盘（饼图、面积图、柱状图）\n- 文件监听器实时追踪，2 秒防抖自动刷新\n- 日/周/月预算提醒 + 系统通知\n- 三级价格引擎（内置 + CDN 远程 + 自定义）\n- 数据导出 CSV / JSON\n- 中英文双语，自动跟随系统语言\n- 自定义模型价格和监听路径\n- 崩溃日志 + 一键反馈 GitHub Issue",
+  "version": "0.1.1",
+  "notes": "TokenOwl v0.1.1\n\n- 修复 Codex CLI token 用量为 0 的问题\n- 新增推理 token 统计支持\n- 优化未配置价格模型的添加流程\n- 界面与样式细节优化\n- 代码清理与无用逻辑移除",
   "pubDate": "2026-06-01",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/bluvenr/tokenowl/releases/download/v0.1.0/TokenOwl_0.1.0_x64-setup.exe",
+      "url": "https://github.com/bluvenr/tokenowl/releases/download/v0.1.1/TokenOwl_0.1.1_x64-setup.exe",
       "signature": ""
     }
   }

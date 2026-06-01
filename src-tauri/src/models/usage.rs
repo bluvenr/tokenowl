@@ -69,16 +69,6 @@ impl DataSource {
         }
     }
 
-    /// Default watch paths relative to home directory
-    pub fn default_watch_paths(&self) -> Vec<&str> {
-        match self {
-            DataSource::ClaudeCode => vec![".claude/projects"],
-            DataSource::CodexCli => vec![".codex/sessions"],
-            DataSource::GeminiCli => vec![".gemini/tmp"],
-            DataSource::KimiCode => vec![".kimi"],
-            DataSource::QwenCode => vec![".qwen/history"],
-        }
-    }
 }
 
 /// Summary for frontend display
