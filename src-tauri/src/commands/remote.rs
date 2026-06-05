@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use tauri::State;
 
-use crate::commands::usage::DbState;
 use crate::remote::config::RemoteConfig;
 use crate::remote::download_source::{SharedDownloadSource, new_shared};
 use crate::remote::price_syncer::PriceSyncer;
@@ -19,10 +18,10 @@ pub struct RemoteState {
 }
 
 impl RemoteState {
-    pub fn new(owner: &str, repo: &str, price_sync_hours: u8, download_source_str: &str) -> Self {
+    pub fn new(owner: &str, repo: &str, download_source_str: &str) -> Self {
         let download_source = new_shared(download_source_str);
         Self {
-            price_syncer: PriceSyncer::new(owner, repo, price_sync_hours, download_source.clone()),
+            price_syncer: PriceSyncer::new(owner, repo, download_source.clone()),
             config_manager: crate::remote::config::RemoteConfigManager::new(owner, repo, download_source.clone()),
             crash_logger: CrashLogger::new(),
             github_owner: owner.to_string(),
@@ -66,18 +65,12 @@ pub async fn fetch_remote_config(
 #[tauri::command]
 pub async fn sync_remote_prices(
     remote: State<'_, RemoteStateManaged>,
-    db: State<'_, DbState>,
 ) -> Result<u32, String> {
     let prices = remote.price_syncer.force_sync().await;
     let count = prices.len() as u32;
 
-    // Re-run cost backfill with updated prices
     if count > 0 {
-        log::info!("Remote prices synced: {} models, triggering cost backfill", count);
-        let manager = crate::collectors::CollectorManager::new(db.inner().clone());
-        if let Ok(backfilled) = manager.backfill_costs_with_remote(&prices) {
-            log::info!("Cost backfill after price sync: {} records updated", backfilled);
-        }
+        log::info!("Remote prices synced: {} models", count);
     }
 
     Ok(count)

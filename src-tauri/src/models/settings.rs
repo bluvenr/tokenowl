@@ -11,7 +11,6 @@ pub struct AppSettings {
     pub tray_display: String,
     pub telemetry_enabled: bool,
     pub crash_log_enabled: bool,
-    pub price_sync_interval_hours: u8,
     pub update_check_interval_hours: u8,
 }
 
@@ -25,44 +24,30 @@ impl Default for AppSettings {
             tray_display: "cost".to_string(),
             telemetry_enabled: false,
             crash_log_enabled: true,
-            price_sync_interval_hours: 12,
             update_check_interval_hours: 4,
         }
     }
 }
 
-/// Model pricing definition
+/// Model pricing definition — user custom overrides for CC Switch cost data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPricing {
     pub model_id: String,
     pub display_name: String,
-    pub source: String,
     pub input_per_million: f64,
     pub output_per_million: f64,
     pub cache_write_per_million: Option<f64>,
     pub cache_read_per_million: Option<f64>,
     #[serde(default)]
     pub reasoning_per_million: Option<f64>,
-    #[serde(default)]
-    pub price_source: String, // "remote" | "cached" | "custom"
-    /// Whether a non-custom fallback exists (remote / cached)
-    #[serde(default)]
-    pub has_default: bool,
     /// Creation timestamp for custom prices (ISO 8601)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
-}
-
-/// Data source configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SourceConfig {
-    pub source: String,
-    pub enabled: bool,
-    pub custom_path: Option<String>,
-    #[serde(default)]
-    pub available: bool,
-    #[serde(default)]
-    pub status: String, // "available" | "unavailable" | "collecting" | "error"
+    /// Runtime-only: price origin ("cached", "remote", "custom")
+    #[serde(default, skip_serializing)]
+    pub price_source: String,
+    /// Runtime-only: whether a default price exists for this model
+    #[serde(default, skip_serializing)]
+    pub has_default: bool,
 }

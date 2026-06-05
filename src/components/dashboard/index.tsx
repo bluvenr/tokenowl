@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ArrowRight, X } from "lucide-react";
-import type { MissingModelPrice } from "@/lib/tauri";
+import { RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import type { SettingsTab } from "@/App";
+import { getCcSwitchStatus, syncCcSwitch, type CcSwitchStatus } from "@/lib/tauri";
 import {
   CostOverview,
   ToolBreakdown,
@@ -11,7 +11,9 @@ import {
   ModelBreakdown,
   SessionList,
 } from "./Dashboard";
+import { SavingsInsights } from "./SavingsInsights";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 /** Skeleton shimmer placeholder for cards during initial load */
 function SkeletonCard({ className = "" }: { className?: string }) {
@@ -30,14 +32,14 @@ function SkeletonCard({ className = "" }: { className?: string }) {
 /** Empty state illustration — a minimal chart icon with a message */
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-10 gap-3">
+    <div className="flex flex-col items-center justify-center py-12 gap-3">
       <svg
-        width="64"
-        height="64"
+        width="48"
+        height="48"
         viewBox="0 0 64 64"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="text-muted-foreground/40"
+        className="text-muted-foreground/30"
       >
         <rect x="8" y="36" width="10" height="20" rx="2" fill="currentColor" opacity="0.3" />
         <rect x="22" y="24" width="10" height="32" rx="2" fill="currentColor" opacity="0.5" />
@@ -45,96 +47,140 @@ export function EmptyState({ message }: { message: string }) {
         <rect x="50" y="8" width="10" height="48" rx="2" fill="currentColor" opacity="0.5" />
         <path d="M4 60H62" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.3" />
       </svg>
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <p className="text-sm text-muted-foreground/70">{message}</p>
     </div>
   );
 }
 
-export function Dashboard({ onNavigateToSettings, missingModels = [] }: {
+/** CC Switch connection status badge */
+function CcSwitchBadge({ status, onSync }: { status: CcSwitchStatus | null; onSync: () => void }) {
+  const { t } = useTranslation();
+  const [syncing, setSyncing] = useState(false);
+
+  if (!status) return null;
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await onSync();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-card/50">
+      <div className="flex items-center gap-2">
+        {status.detected ? (
+          <CheckCircle2 className="w-4 h-4 text-green-500" />
+        ) : (
+          <AlertCircle className="w-4 h-4 text-amber-500" />
+        )}
+        <span className="text-sm font-medium">CC Switch</span>
+        {status.detected && (
+          <span className="text-xs text-muted-foreground">
+            {t("dashboard.records_count", { count: status.recordCount })}
+          </span>
+        )}
+      </div>
+      {status.detected && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSync}
+          disabled={syncing}
+          className="h-7 px-2 gap-1.5 text-xs"
+        >
+          <RefreshCw className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? t("dashboard.syncing") : t("dashboard.sync")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function Dashboard({ onNavigateToSettings }: {
   onNavigateToSettings?: (tab: SettingsTab) => void;
-  missingModels?: MissingModelPrice[];
 }) {
   const { refresh, loading, error, summary } = useAppStore();
   const { t } = useTranslation();
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [ccSwitchStatus, setCcSwitchStatus] = useState<CcSwitchStatus | null>(null);
 
   useEffect(() => {
     refresh();
+    loadCcSwitchStatus();
   }, [refresh]);
+
+  async function loadCcSwitchStatus() {
+    try {
+      const status = await getCcSwitchStatus();
+      setCcSwitchStatus(status);
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  async function handleSync() {
+    await syncCcSwitch();
+    await refresh();
+    await loadCcSwitchStatus();
+  }
 
   const isFirstLoad = loading && summary === null;
 
   return (
     <div className="p-6 pb-10">
-      <div className="max-w-5xl mx-auto space-y-4">
-        {/* Missing price warning banner */}
-        {missingModels.length > 0 && !bannerDismissed && (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                {t("dashboard.missing_prices_title", { count: missingModels.length })}
-              </p>
-              <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-1 truncate">
-                {missingModels.slice(0, 5).map((m) => m.model).join("、")}
-                {missingModels.length > 5 && t("dashboard.missing_prices_more", { count: missingModels.length - 5 })}
-              </p>
-            </div>
-            <button
-              onClick={() => onNavigateToSettings?.("pricing")}
-              className="shrink-0 inline-flex items-center gap-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 px-2.5 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 transition-colors"
-            >
-              {t("dashboard.go_set_prices")}
-              <ArrowRight className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => setBannerDismissed(true)}
-              className="shrink-0 text-amber-500/60 hover:text-amber-500 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Header with CC Switch status */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">{t("dashboard.overview")}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{t("dashboard.subtitle")}</p>
           </div>
-        )}
+          <CcSwitchBadge status={ccSwitchStatus} onSync={handleSync} />
+        </div>
 
         {error && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive flex items-center justify-between">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={refresh} className="underline text-xs ml-3 shrink-0">
+            <button onClick={refresh} className="underline text-xs ml-3 shrink-0 font-medium">
               {t("common.retry")}
             </button>
           </div>
         )}
 
         {isFirstLoad ? (
-          /* Skeleton layout matching the dashboard structure */
-          <>
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SkeletonCard />
               <SkeletonCard />
             </div>
-            <SkeletonCard className="min-h-[240px]" />
+            <SkeletonCard className="min-h-[280px]" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SkeletonCard />
               <SkeletonCard />
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            {/* Row 1: Overview + Tool Breakdown */}
+          <div className="space-y-6">
+            {/* Savings Insights */}
+            <SavingsInsights onNavigateToSettings={onNavigateToSettings} />
+
+            {/* Main metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <CostOverview />
               <ToolBreakdown />
             </div>
 
-            {/* Row 2: Trend Chart (full width) */}
+            {/* Trend */}
             <TrendChart />
 
-            {/* Row 3: Model Breakdown + Session List */}
+            {/* Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ModelBreakdown />
               <SessionList />
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

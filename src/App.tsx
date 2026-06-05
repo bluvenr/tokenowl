@@ -7,25 +7,19 @@ import { Settings } from "@/components/settings/Settings";
 import { BudgetAlertBanner, ToastContainer } from "@/components/budget/BudgetAlert";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { AnnouncementBanner } from "@/components/announcement/AnnouncementBanner";
-import { useRemoteServices } from "@/hooks/useUpdater";
 import { useAppStore } from "@/stores/appStore";
-import { getSettings, rebuildTrayMenu, getModelsMissingPrices, type MissingModelPrice } from "@/lib/tauri";
-import { Button } from "@/components/ui/button";
+import { getSettings, rebuildTrayMenu } from "@/lib/tauri";
 
 type Page = "dashboard" | "settings";
-export type SettingsTab = "general" | "data_source" | "pricing" | "budget" | "privacy" | "about";
+export type SettingsTab = "general" | "pricing" | "budget" | "privacy" | "about";
 
 function App() {
   const [page, setPage] = useState<Page>("dashboard");
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab | undefined>(undefined);
   const [pricingPrefillSignal, setPricingPrefillSignal] = useState(0);
-  const [missingModels, setMissingModels] = useState<MissingModelPrice[]>([]);
   const [theme, setTheme] = useState<string>("system");
   const { t, i18n } = useTranslation();
   const initEventListeners = useAppStore((s) => s.initEventListeners);
-
-  // Initialize remote services (update checker, price sync, announcements)
-  useRemoteServices();
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -33,31 +27,19 @@ function App() {
     return () => { cleanup?.(); };
   }, [initEventListeners]);
 
-  // Refresh missing model prices (shared between Dashboard banner and Settings pricing tab)
-  const refreshMissing = useCallback(() => {
-    getModelsMissingPrices().then(setMissingModels).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    refreshMissing();
-  }, [refreshMissing]);
-
   // Load theme + language from settings on mount
   useEffect(() => {
     getSettings().then((s) => {
       setTheme(s.theme);
-      // M-FE-1: Apply saved language preference at startup
       if (s.language && s.language !== "auto") {
         i18n.changeLanguage(s.language);
       } else {
-        // "auto" — detect from OS locale
         i18n.changeLanguage(navigator.language.startsWith("zh") ? "zh-CN" : "en");
       }
-      // Sync tray menu text when language is "auto" (backend can't detect OS locale)
       if (s.language === "auto") {
         rebuildTrayMenu(
           t("tray.open_dashboard"),
-          t("tray.rescan"),
+          t("tray.sync_data"),
           t("tray.quit"),
         ).catch((e) => console.warn("Tray menu rebuild failed:", e));
       }
@@ -163,39 +145,49 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Navigation bar */}
-      <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur px-4 py-2 flex items-center gap-2">
-        <div className="flex items-center gap-2 mr-auto">
+      <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur-sm px-4 h-12 flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <img src="/favicon.png" alt="" className="w-5 h-5" />
-          <h1 className="text-lg font-bold tracking-tight">{t("app.name")}</h1>
+          <h1 className="text-sm font-semibold tracking-tight">{t("app.name")}</h1>
         </div>
-        <Button
-          variant={page === "dashboard" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => handlePageChange("dashboard")}
-          className="gap-1.5"
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          {t("dashboard.overview")}
-        </Button>
-        <Button
-          variant={page === "settings" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => handlePageChange("settings")}
-          className="gap-1.5"
-        >
-          <SettingsIcon className="w-4 h-4" />
-          {t("settings.title")}
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" />
-        <Button
-          variant={trayVisible ? "default" : "ghost"}
-          size="sm"
+
+        {/* Segment navigation */}
+        <div className="flex gap-0.5 rounded-lg bg-muted/60 p-0.5">
+          <button
+            onClick={() => handlePageChange("dashboard")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              page === "dashboard"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground/80"
+            }`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            {t("dashboard.overview")}
+          </button>
+          <button
+            onClick={() => handlePageChange("settings")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              page === "settings"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground/80"
+            }`}
+          >
+            <SettingsIcon className="w-3.5 h-3.5" />
+            {t("settings.title")}
+          </button>
+        </div>
+
+        <button
           onClick={handleToggleTray}
           title={trayVisible ? t("tray.hide_widget") : t("tray.show_widget")}
-          className="gap-1.5"
+          className={`p-1.5 rounded-md transition-colors ${
+            trayVisible
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
         >
           <Monitor className="w-4 h-4" />
-        </Button>
+        </button>
       </nav>
 
       {/* Announcement banner (shown on dashboard) */}
@@ -209,8 +201,8 @@ function App() {
       )}
 
       {/* Page content */}
-      {page === "dashboard" && <Dashboard onNavigateToSettings={navigateToSettings} missingModels={missingModels} />}
-      {page === "settings" && <Settings onSettingsSaved={handleSettingsSaved} initialTab={settingsInitialTab} missingModels={missingModels} refreshMissing={refreshMissing} pricingPrefillSignal={pricingPrefillSignal} />}
+      {page === "dashboard" && <Dashboard onNavigateToSettings={navigateToSettings} />}
+      {page === "settings" && <Settings onSettingsSaved={handleSettingsSaved} initialTab={settingsInitialTab} pricingPrefillSignal={pricingPrefillSignal} />}
 
       {/* Update dialog (triggered by background update checker) */}
       <UpdateDialog />

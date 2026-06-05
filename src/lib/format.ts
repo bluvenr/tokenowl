@@ -29,11 +29,20 @@ export function formatTokens(count: number): string {
 /// Source color for charts
 export function getSourceColor(source: string): string {
   const colors: Record<string, string> = {
+    cc_switch: "#D97706",
     claude_code: "#D97706",
     codex_cli: "#10B981",
     gemini_cli: "#3B82F6",
-    kimi_code: "#8B5CF6",
-    qwen_code: "#EC4899",
   };
   return colors[source] || "#6B7280";
+}
+
+/// Model color palette for charts (cycling through preset colors)
+const MODEL_COLORS = [
+  "#D97706", "#3B82F6", "#10B981", "#EC4899", "#8B5CF6",
+  "#EF4444", "#14B8A6", "#F59E0B", "#6366F1", "#06B6D4",
+];
+
+export function getModelColor(_model: string, index: number): string {
+  return MODEL_COLORS[index % MODEL_COLORS.length];
 }

@@ -1,17 +1,16 @@
 import { create } from "zustand";
 import {
   getUsageSummary,
-  getUsageBySource,
   getUsageByModel,
   getUsageTrend,
   getRecentSessions,
-  onDataChanged,
-  onRescanRequested,
+  getSavingsAnalysis,
+  onSyncRequested,
   type UsageSummary,
-  type SourceUsage,
   type ModelUsage,
   type TrendPoint,
   type SessionSummary,
+  type SavingsAnalysis,
 } from "@/lib/tauri";
 
 interface AppState {
@@ -25,10 +24,12 @@ interface AppState {
 
   // Usage data
   summary: UsageSummary | null;
-  bySource: SourceUsage[];
   byModel: ModelUsage[];
   trend: TrendPoint[];
   sessions: SessionSummary[];
+
+  // Savings analysis data
+  savings: SavingsAnalysis | null;
 
   // Loading state
   loading: boolean;
@@ -59,10 +60,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   summary: null,
-  bySource: [],
   byModel: [],
   trend: [],
   sessions: [],
+  savings: null,
 
   loading: false,
   error: null,
@@ -72,14 +73,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { period, trendGranularity } = get();
     set({ loading: true, error: null });
     try {
-      const [summary, bySource, byModel, trend, sessions] = await Promise.all([
+      const [summary, byModel, trend, sessions, savings] = await Promise.all([
         getUsageSummary(period),
-        getUsageBySource(period),
         getUsageByModel(period),
         getUsageTrend(trendGranularity, period),
         getRecentSessions(20),
+        getSavingsAnalysis(period),
       ]);
-      set({ summary, bySource, byModel, trend, sessions, loading: false });
+      set({ summary, byModel, trend, sessions, savings, loading: false });
     } catch (e) {
       set({ error: String(e), loading: false });
     }
@@ -101,20 +102,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ listenersRegistered: true });
 
-    // Listen for file watcher data changes (real-time incremental updates)
-    const unlistenData = await onDataChanged(() => {
-      get().refresh();
-    });
-
-    // Listen for rescan requests from tray menu
-    const unlistenRescan = await onRescanRequested(() => {
+    // Listen for sync requests from tray menu
+    const unlistenSync = await onSyncRequested(() => {
       get().refresh();
     });
 
     // Return cleanup function
     return () => {
-      unlistenData();
-      unlistenRescan();
+      unlistenSync();
       set({ listenersRegistered: false });
     };
   },

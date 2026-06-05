@@ -17,7 +17,6 @@ TokenOwl is a lightweight desktop widget that tracks your AI coding tool costs i
 | Codex CLI | `~/.codex/sessions/` | JSONL |
 | Gemini CLI | `~/.gemini/tmp/` | JSON |
 | Kimi Code | `~/.kimi/sessions/` | JSONL |
-| Qwen Code | `~/.qwen/history/` | JSON |
 
 ## Features
 

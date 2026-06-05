@@ -70,41 +70,5 @@
     "outputPerMillion": 2.50,
     "cacheWritePerMillion": null,
     "cacheReadPerMillion": 0.03
-  },
-  {
-    "modelId": "k2",
-    "displayName": "Kimi K2",
-    "source": "kimi_code",
-    "inputPerMillion": 0.60,
-    "outputPerMillion": 2.50,
-    "cacheWritePerMillion": null,
-    "cacheReadPerMillion": 0.15
-  },
-  {
-    "modelId": "moonshot-v1-128k",
-    "displayName": "Moonshot v1 128K",
-    "source": "kimi_code",
-    "inputPerMillion": 2.0,
-    "outputPerMillion": 5.0,
-    "cacheWritePerMillion": null,
-    "cacheReadPerMillion": null
-  },
-  {
-    "modelId": "qwen3-coder",
-    "displayName": "Qwen3 Coder",
-    "source": "qwen_code",
-    "inputPerMillion": 1.0,
-    "outputPerMillion": 5.0,
-    "cacheWritePerMillion": null,
-    "cacheReadPerMillion": null
-  },
-  {
-    "modelId": "qwen3-235b-a22b",
-    "displayName": "Qwen3 235B-A22B",
-    "source": "qwen_code",
-    "inputPerMillion": 0.30,
-    "outputPerMillion": 1.15,
-    "cacheWritePerMillion": null,
-    "cacheReadPerMillion": null
   }
 ]

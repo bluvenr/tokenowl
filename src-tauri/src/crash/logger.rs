@@ -63,9 +63,18 @@ impl CrashLogger {
         Some(entry)
     }
 
-    /// Log a panic (call from std::panic::set_hook)
+    /// Log a panic (call from std::panic::set_hook).
+    /// Uses try_lock to avoid deadlock if panic occurred while io_lock was held.
     pub fn log_panic(&self, panic_info: &str) -> Option<CrashEntry> {
-        let _guard = self.io_lock.lock().ok()?;
+        // Use try_lock — if the mutex is poisoned or already locked (e.g., panic
+        // happened during log_crash), skip logging to avoid deadlock.
+        let _guard = match self.io_lock.try_lock() {
+            Ok(g) => g,
+            Err(_) => {
+                eprintln!("[CrashLogger] Could not acquire lock in panic handler, skipping");
+                return None;
+            }
+        };
         let entry = CrashEntry {
             id: uuid::Uuid::new_v4().to_string(),
             timestamp: Utc::now().to_rfc3339(),
@@ -78,10 +87,13 @@ impl CrashLogger {
         };
 
         let file_path = self.log_dir.join(format!("panic_{}.json", &entry.id[..8]));
-        let json = serde_json::to_string_pretty(&entry).ok()?;
-        fs::write(&file_path, json).ok()?;
+        let json = match serde_json::to_string_pretty(&entry) {
+            Ok(j) => j,
+            Err(_) => return None,
+        };
+        let _ = fs::write(&file_path, json);
 
-        log::error!("Panic logged: {}", file_path.display());
+        eprintln!("[CrashLogger] Panic logged: {}", file_path.display());
         Some(entry)
     }
 
@@ -235,7 +247,7 @@ fn regex_replace_paths(s: &str) -> String {
         break;
     }
     // Replace all /Users/xxx or /home/xxx patterns
-    for prefix in &["/Users/", "/home/"] {
+    for prefix in &["/Users/", "/home/", "/usr/", "/tmp/", "/var/folders/"] {
         loop {
             if let Some(start) = result.find(prefix) {
                 let after = start + prefix.len();
@@ -246,6 +258,17 @@ fn regex_replace_paths(s: &str) -> String {
             }
             break;
         }
+    }
+    // Replace Windows APPDATA/LOCALAPPDATA paths (e.g., C:\Users\xxx\AppData\...)
+    loop {
+        if let Some(start) = result.find("C:\\Users\\") {
+            // Already handled above, but also match nested patterns
+            if let Some(end) = result[start + 10..].find('\\').map(|i| start + 10 + i) {
+                result = format!("{}~\\{}", &result[..start], &result[end..]);
+                continue;
+            }
+        }
+        break;
     }
     result
 }

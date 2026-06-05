@@ -6,17 +6,15 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 pub mod error;
 pub mod models;
 pub mod storage;
-pub mod collectors;
+pub mod ccswitch;
 pub mod pricing;
-pub mod watcher;
 pub mod commands;
 pub mod remote;
 pub mod updater;
 pub mod crash;
 
 use storage::database::Database;
-use collectors::CollectorManager;
-use watcher::file_watcher::FileWatcher;
+use ccswitch::syncer::CcSwitchSyncer;
 use commands::remote::RemoteState;
 
 /// GitHub repository coordinates for remote services
@@ -39,46 +37,32 @@ pub fn run() {
     let db = Arc::new(Database::new().expect("Failed to initialize database"));
     log::info!("Database initialized");
 
-    // Create collector manager and run initial scan
-    let manager = Arc::new(CollectorManager::new(db.clone()));
-    if let Err(e) = manager.initial_scan() {
-        log::error!("Initial scan failed: {}", e);
+    // Initialize CC Switch syncer
+    let syncer = Arc::new(CcSwitchSyncer::new(db.clone()));
+    if syncer.is_detected() {
+        log::info!("CC Switch detected at: {}", syncer.db_path().display());
 
-        // Log crash
-        if let Some(logger) = crash::logger::CrashLogger::new() {
-            logger.log_crash(&error::AppError::Config(format!("Initial scan failed: {}", e)));
-        }
-    }
-
-    // Log source status
-    for status in manager.get_source_status() {
-        log::info!(
-            "  Source [{}]: available={}, enabled={}",
-            status.display_name, status.available, status.enabled
-        );
-    }
-
-    // Set up file watcher
-    let watch_paths = manager.all_watch_paths();
-    let mut file_watcher = FileWatcher::new();
-    let watcher_active = if !watch_paths.is_empty() {
-        if let Err(e) = file_watcher.watch_paths(&watch_paths) {
-            log::error!("Failed to start file watcher: {}", e);
-            false
-        } else {
-            true
+        // Run initial sync
+        match syncer.sync() {
+            Ok(result) => {
+                log::info!(
+                    "Initial CC Switch sync: {} new records ({}ms)",
+                    result.new_records, result.sync_duration_ms
+                );
+            }
+            Err(e) => {
+                log::error!("Initial CC Switch sync failed: {}", e);
+            }
         }
     } else {
-        log::info!("No watch paths available (no AI tools detected)");
-        false
-    };
+        log::info!("CC Switch not detected (waiting for installation...)");
+    }
 
     // Initialize remote services
     let app_settings = db.get_app_settings().unwrap_or_default();
     let remote_state = Arc::new(RemoteState::new(
         GITHUB_OWNER,
         GITHUB_REPO,
-        app_settings.price_sync_interval_hours,
         &app_settings.download_source,
     ));
 
@@ -96,8 +80,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(db.clone())
         .manage(remote_state.clone())
+        .manage(syncer.clone() as commands::ccswitch::CcSwitchSyncerState)
         .setup(move |app| {
             // Register autostart plugin
             app.handle().plugin(tauri_plugin_autostart::init(
@@ -108,15 +95,15 @@ pub fn run() {
             // Build tray menu with translated text based on saved language
             let is_zh = app_settings.language.starts_with("zh");
             let open_text = if is_zh { "打开仪表盘" } else { "Open Dashboard" };
-            let rescan_text = if is_zh { "重新扫描" } else { "Rescan Data" };
+            let sync_text = if is_zh { "同步数据" } else { "Sync Data" };
             let quit_text = if is_zh { "退出" } else { "Quit" };
 
             let open_item = MenuItemBuilder::with_id("open_dashboard", open_text).build(app)?;
-            let rescan_item = MenuItemBuilder::with_id("rescan", rescan_text).build(app)?;
+            let sync_item = MenuItemBuilder::with_id("sync", sync_text).build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", quit_text).build(app)?;
             let menu = MenuBuilder::new(app)
                 .item(&open_item)
-                .item(&rescan_item)
+                .item(&sync_item)
                 .separator()
                 .item(&quit_item)
                 .build()?;
@@ -127,9 +114,9 @@ pub fn run() {
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(tray_icon)
                 .menu(&menu)
-                .tooltip("TokenOwl - AI Cost Tracker")
+                .tooltip("TokenOwl - CC Switch 的数据分析搭档")
                 .on_tray_icon_event(|tray, event| {
-                    // Left-click: toggle tray popup window, positioned near the tray icon
+                    // Left-click: toggle tray popup window
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
@@ -142,14 +129,11 @@ pub fn run() {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
                             } else {
-                                // Position window near the tray icon
                                 let tray_x = position.x as i32;
                                 let tray_y = position.y as i32;
                                 let win_height = 400;
-                                // Default: above the tray icon (taskbar at bottom)
                                 let x = tray_x;
                                 let mut y = tray_y - win_height;
-                                // If above would go off-screen, show below instead
                                 if y < 0 {
                                     y = tray_y + 40;
                                 }
@@ -169,9 +153,9 @@ pub fn run() {
                             let _ = window.set_focus();
                         }
                     }
-                    "rescan" => {
-                        log::info!("Manual rescan triggered from tray");
-                        let _ = app.emit("tokenowl:rescan-requested", ());
+                    "sync" => {
+                        log::info!("Manual sync triggered from tray");
+                        let _ = app.emit("tokenowl:sync-requested", ());
                     }
                     "quit" => {
                         app.exit(0);
@@ -201,20 +185,6 @@ pub fn run() {
                 });
             }
 
-            // Start file watcher event loop in background thread
-            let app_handle = app.handle().clone();
-            if watcher_active {
-                if let Err(e) = file_watcher.start_event_loop(manager, app_handle.clone()) {
-                    log::error!("Failed to start watcher event loop: {}", e);
-                } else {
-                    // Keep file_watcher alive for the app's lifetime by storing it
-                    // in Tauri's managed state. Without this, `file_watcher` is dropped
-                    // at the end of setup(), which drops the RecommendedWatcher and its
-                    // channel sender — causing the event loop thread to exit immediately.
-                    app.manage(std::sync::Mutex::new(file_watcher));
-                }
-            }
-
             // Apply auto-start setting from saved preferences
             {
                 use tauri_plugin_autostart::ManagerExt;
@@ -234,7 +204,7 @@ pub fn run() {
 
             // Start background services
             let update_interval = app_settings.update_check_interval_hours;
-            let price_interval = app_settings.price_sync_interval_hours;
+            let app_handle = app.handle().clone();
 
             // 1. Update checker (periodic background task)
             updater::checker::UpdateChecker::start_periodic_check(
@@ -246,51 +216,38 @@ pub fn run() {
                 app_handle.clone(),
             );
 
-            // 2. Remote price syncer (periodic background task)
-            let remote_for_sync = remote_state.clone();
-            let app_for_sync = app_handle.clone();
-            let db_for_sync = db.clone();
-            if price_interval > 0 {
-                tauri::async_runtime::spawn(async move {
-                    // Initial sync after 10 seconds
-                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-                    let prices = remote_for_sync.price_syncer.sync_prices().await;
-                    log::info!("Initial remote price sync: {} models", prices.len());
+            // 2. CC Switch periodic syncer (every 5 minutes)
+            let syncer_for_sync = syncer.clone();
+            tauri::async_runtime::spawn(async move {
+                // Initial delay
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-                    // Backfill costs with newly fetched remote prices
-                    if !prices.is_empty() {
-                        let manager = CollectorManager::new(db_for_sync.clone());
-                        if let Ok(count) = manager.backfill_costs_with_remote(&prices) {
-                            if count > 0 {
-                                log::info!("Backfilled {} records with remote prices", count);
-                            }
-                        }
-
-                        let _ = app_for_sync.emit("tokenowl:prices-synced", prices.len());
-                    }
-
-                    // Periodic sync
-                    let interval = std::time::Duration::from_secs(price_interval as u64 * 3600);
-                    loop {
-                        tokio::time::sleep(interval).await;
-                        let p = remote_for_sync.price_syncer.sync_prices().await;
-                        log::info!("Periodic price sync: {} models", p.len());
-                        if !p.is_empty() {
-                            let mgr = CollectorManager::new(db_for_sync.clone());
-                            let _ = mgr.backfill_costs_with_remote(&p);
+                let interval = std::time::Duration::from_secs(300); // 5 minutes
+                loop {
+                    if let Ok(result) = syncer_for_sync.sync() {
+                        if result.new_records > 0 {
+                            log::info!("Periodic sync: {} new records", result.new_records);
                         }
                     }
-                });
-            }
+                    tokio::time::sleep(interval).await;
+                }
+            });
 
-            // 3. Remote config fetcher (one-shot on startup)
+            // 3. Remote price syncer (one-shot on startup)
+            let remote_for_prices = remote_state.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                let prices = remote_for_prices.price_syncer.force_sync().await;
+                log::info!("Initial remote price sync: {} models", prices.len());
+            });
+
+            // 4. Remote config fetcher (one-shot on startup)
             let remote_for_config = remote_state.clone();
             let app_for_config = app_handle.clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 if let Some(config) = remote_for_config.config_manager.fetch_config().await {
                     log::info!("Remote config loaded");
-                    // Check for announcement
                     if let Some(announcement) = &config.announcement {
                         let _ = app_for_config.emit("tokenowl:announcement", announcement);
                         log::info!("Announcement: {}", announcement.title);
@@ -303,10 +260,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Usage queries
             commands::usage::get_usage_summary,
-            commands::usage::get_usage_by_source,
             commands::usage::get_usage_by_model,
             commands::usage::get_usage_trend,
             commands::usage::get_recent_sessions,
+            // CC Switch
+            commands::ccswitch::get_ccswitch_status,
+            commands::ccswitch::sync_ccswitch,
+            commands::ccswitch::get_ccswitch_db_path,
             // Budget
             commands::budget::get_budget_config,
             commands::budget::update_budget_config,
@@ -319,19 +279,14 @@ pub fn run() {
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,
-            commands::settings::get_source_configs,
-            commands::settings::update_source_config,
             commands::settings::get_custom_prices,
             commands::settings::update_custom_price,
             commands::settings::delete_custom_price,
             commands::settings::reset_custom_price,
             commands::settings::get_all_prices,
-            commands::settings::recalculate_costs,
             commands::settings::count_model_records,
-            // Scan
-            commands::scan::rescan,
-            commands::scan::get_source_status,
-            commands::scan::get_models_without_prices,
+            // Savings Engine
+            commands::savings::get_savings_analysis,
             // Remote services
             commands::remote::get_app_version,
             commands::remote::check_for_update,
@@ -353,12 +308,12 @@ pub fn run() {
 fn rebuild_tray_menu(
     app: tauri::AppHandle,
     open_text: String,
-    rescan_text: String,
+    sync_text: String,
     quit_text: String,
 ) -> Result<(), String> {
     let menu = MenuBuilder::new(&app)
         .item(&MenuItemBuilder::with_id("open_dashboard", open_text).build(&app).map_err(|e| e.to_string())?)
-        .item(&MenuItemBuilder::with_id("rescan", rescan_text).build(&app).map_err(|e| e.to_string())?)
+        .item(&MenuItemBuilder::with_id("sync", sync_text).build(&app).map_err(|e| e.to_string())?)
         .separator()
         .item(&MenuItemBuilder::with_id("quit", quit_text).build(&app).map_err(|e| e.to_string())?)
         .build()

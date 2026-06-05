@@ -19,6 +19,13 @@ impl Database {
         let conn = Connection::open(&db_path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
 
+        // Run integrity check on startup
+        let integrity: String = conn.query_row("PRAGMA integrity_check", [], |row| row.get(0))
+            .unwrap_or_else(|_| "error".to_string());
+        if integrity != "ok" {
+            log::error!("Database integrity check failed: {}", integrity);
+        }
+
         let db = Self {
             conn: Mutex::new(conn),
         };

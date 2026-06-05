@@ -1,8 +1,8 @@
 use rusqlite::Connection;
 use crate::error::AppResult;
 
-/// Current schema version — bump this when adding new migrations
-pub const CURRENT_SCHEMA_VERSION: i64 = 3;
+/// Current schema version
+pub const CURRENT_SCHEMA_VERSION: i64 = 2;
 
 /// Ensure the schema_version table exists and return the current version (0 if none)
 fn ensure_schema_version_table(conn: &Connection) -> AppResult<i64> {
@@ -29,34 +29,81 @@ fn set_schema_version(conn: &Connection, version: i64) -> AppResult<()> {
 pub fn run_all(conn: &Connection) -> AppResult<()> {
     let current_version = ensure_schema_version_table(conn)?;
 
-    // Version 1: initial schema (current tables)
-    if current_version < 1 {
+    // Check if critical tables exist (safety check for corrupted databases)
+    let tables_exist = check_critical_tables_exist(conn)?;
+
+    // If old schema exists or critical tables are missing, rebuild from scratch
+    if (current_version > 0 && current_version != CURRENT_SCHEMA_VERSION) || !tables_exist {
+        if !tables_exist && current_version > 0 {
+            log::warn!(
+                "Critical tables missing despite schema version {}. Rebuilding...",
+                current_version
+            );
+        } else {
+            log::warn!(
+                "Old schema version {} detected. Dropping all tables and rebuilding...",
+                current_version
+            );
+        }
+        drop_all_tables(conn)?;
+    }
+
+    let effective_version = ensure_schema_version_table(conn)?;
+    if effective_version < CURRENT_SCHEMA_VERSION {
         run_v1(conn)?;
-        set_schema_version(conn, 1)?;
-    }
-
-    // Version 2: add created_at to custom_prices for stable sort order
-    if current_version < 2 {
-        run_v2(conn)?;
-        set_schema_version(conn, 2)?;
-    }
-
-    // Version 3: add reasoning_tokens column + fix codex_cli zero-token bug
-    if current_version < 3 {
-        run_v3(conn)?;
-        set_schema_version(conn, 3)?;
+        set_schema_version(conn, CURRENT_SCHEMA_VERSION)?;
     }
 
     Ok(())
 }
 
+/// Check if critical tables exist (usage_records, app_settings)
+fn check_critical_tables_exist(conn: &Connection) -> AppResult<bool> {
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('usage_records', 'app_settings')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    Ok(count == 2)
+}
+
+/// Drop all existing tables (used when migrating from old schema)
+fn drop_all_tables(conn: &Connection) -> AppResult<()> {
+    let tables: Vec<String> = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")?
+        .query_map([], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for table in &tables {
+        conn.execute(&format!("DROP TABLE IF EXISTS \"{}\"", table), [])?;
+        log::info!("Dropped old table: {}", table);
+    }
+
+    // Also drop indexes
+    let indexes: Vec<String> = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'")?
+        .query_map([], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for index in &indexes {
+        conn.execute(&format!("DROP INDEX IF EXISTS \"{}\"", index), [])?;
+    }
+
+    Ok(())
+}
+
+/// v1: Fresh schema for CC Switch companion product
 fn run_v1(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(
         "
-        -- Core usage records table
+        -- Core usage records (synced from CC Switch proxy_request_logs)
         CREATE TABLE IF NOT EXISTS usage_records (
             id TEXT PRIMARY KEY,
-            source TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'ccswitch',
             session_id TEXT NOT NULL,
             timestamp TEXT NOT NULL,
             model TEXT NOT NULL,
@@ -65,23 +112,39 @@ fn run_v1(conn: &Connection) -> AppResult<()> {
             cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
             cache_read_tokens INTEGER NOT NULL DEFAULT 0,
             total_tokens INTEGER NOT NULL DEFAULT 0,
+            reasoning_tokens INTEGER NOT NULL DEFAULT 0,
             cost_usd REAL,
             project_path TEXT,
+            provider_name TEXT,
+            response_time_ms INTEGER,
+            status_code INTEGER,
+            cc_switch_log_id TEXT UNIQUE,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
         -- Query optimization indexes
-        CREATE INDEX IF NOT EXISTS idx_source_timestamp ON usage_records(source, timestamp);
-        CREATE INDEX IF NOT EXISTS idx_model_timestamp ON usage_records(model, timestamp);
-        CREATE INDEX IF NOT EXISTS idx_session ON usage_records(session_id);
+        CREATE INDEX IF NOT EXISTS idx_records_timestamp
+            ON usage_records(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_records_model_timestamp
+            ON usage_records(model, timestamp);
+        CREATE INDEX IF NOT EXISTS idx_records_provider
+            ON usage_records(provider_name, timestamp);
+        CREATE INDEX IF NOT EXISTS idx_records_ts_cost
+            ON usage_records(timestamp, cost_usd);
+        CREATE INDEX IF NOT EXISTS idx_records_session
+            ON usage_records(session_id);
 
-        -- File offset tracking for incremental parsing
-        CREATE TABLE IF NOT EXISTS file_offsets (
-            file_path TEXT PRIMARY KEY,
-            source TEXT NOT NULL,
-            byte_offset INTEGER NOT NULL DEFAULT 0,
-            last_modified TEXT
+        -- Sync state between TokenOwl and CC Switch (single row)
+        CREATE TABLE IF NOT EXISTS sync_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            last_sync_time TEXT,
+            last_sync_record_count INTEGER DEFAULT 0,
+            cc_switch_db_path TEXT,
+            cc_switch_detected BOOLEAN DEFAULT 0,
+            sync_interval_secs INTEGER DEFAULT 300,
+            total_records_synced INTEGER DEFAULT 0
         );
+        INSERT OR IGNORE INTO sync_state (id) VALUES (1);
 
         -- Budget configuration (single row)
         CREATE TABLE IF NOT EXISTS budget_config (
@@ -93,16 +156,18 @@ fn run_v1(conn: &Connection) -> AppResult<()> {
             alert_icon_color BOOLEAN DEFAULT 1,
             alert_system_notify BOOLEAN DEFAULT 1
         );
+        INSERT OR IGNORE INTO budget_config (id) VALUES (1);
 
-        -- Custom model prices (user overrides)
+        -- User custom model prices (overrides for CC Switch cost data)
         CREATE TABLE IF NOT EXISTS custom_prices (
             model_id TEXT PRIMARY KEY,
             display_name TEXT,
-            source TEXT,
             input_per_million REAL NOT NULL,
             output_per_million REAL NOT NULL,
             cache_write_per_million REAL,
-            cache_read_per_million REAL
+            cache_read_per_million REAL,
+            reasoning_per_million REAL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
         -- Application settings (single row)
@@ -115,52 +180,32 @@ fn run_v1(conn: &Connection) -> AppResult<()> {
             tray_display TEXT DEFAULT 'cost',
             telemetry_enabled BOOLEAN DEFAULT 0,
             crash_log_enabled BOOLEAN DEFAULT 1,
-            price_sync_interval_hours INTEGER DEFAULT 12,
             update_check_interval_hours INTEGER DEFAULT 4,
-            last_price_sync TEXT,
             last_update_check TEXT
         );
+        INSERT OR IGNORE INTO app_settings (id) VALUES (1);
 
-        -- Data source configuration (one row per source)
-        CREATE TABLE IF NOT EXISTS source_config (
-            source TEXT PRIMARY KEY,
-            enabled BOOLEAN DEFAULT 1,
-            custom_path TEXT
+        -- Crash logs
+        CREATE TABLE IF NOT EXISTS crash_logs (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL,
+            error_type TEXT NOT NULL,
+            message TEXT NOT NULL,
+            stack_trace TEXT,
+            app_version TEXT NOT NULL,
+            os_info TEXT NOT NULL,
+            context TEXT DEFAULT '{}'
+        );
+
+        -- Analysis result cache (avoid recomputation)
+        CREATE TABLE IF NOT EXISTS analysis_cache (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            computed_at TEXT NOT NULL,
+            ttl_secs INTEGER DEFAULT 3600
         );
         ",
     )?;
 
-    // Ensure default rows exist
-    conn.execute_batch(
-        "
-        INSERT OR IGNORE INTO budget_config (id) VALUES (1);
-        INSERT OR IGNORE INTO app_settings (id) VALUES (1);
-
-        INSERT OR IGNORE INTO source_config (source, enabled) VALUES ('claude_code', 1);
-        INSERT OR IGNORE INTO source_config (source, enabled) VALUES ('codex_cli', 1);
-        INSERT OR IGNORE INTO source_config (source, enabled) VALUES ('gemini_cli', 1);
-        INSERT OR IGNORE INTO source_config (source, enabled) VALUES ('kimi_code', 1);
-        INSERT OR IGNORE INTO source_config (source, enabled) VALUES ('qwen_code', 1);
-        ",
-    )?;
-
-    Ok(())
-}
-
-fn run_v2(conn: &Connection) -> AppResult<()> {
-    conn.execute_batch(
-        "ALTER TABLE custom_prices ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'));",
-    )?;
-    Ok(())
-}
-
-/// v3: Add reasoning_tokens and reasoning_per_million columns.
-fn run_v3(conn: &Connection) -> AppResult<()> {
-    conn.execute_batch(
-        "
-        ALTER TABLE usage_records ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0;
-        ALTER TABLE custom_prices ADD COLUMN reasoning_per_million REAL;
-        ",
-    )?;
     Ok(())
 }

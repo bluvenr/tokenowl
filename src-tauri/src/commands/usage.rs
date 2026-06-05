@@ -12,11 +12,6 @@ pub fn get_usage_summary(db: State<'_, DbState>, period: String) -> Result<Usage
 }
 
 #[tauri::command]
-pub fn get_usage_by_source(db: State<'_, DbState>, period: String) -> Result<Vec<SourceUsage>, String> {
-    db.get_usage_by_source(&period).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn get_usage_by_model(db: State<'_, DbState>, period: String) -> Result<Vec<ModelUsage>, String> {
     db.get_usage_by_model(&period).map_err(|e| e.to_string())
 }

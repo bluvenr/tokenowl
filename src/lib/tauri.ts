@@ -12,14 +12,6 @@ export interface UsageSummary {
   sessionCount: number;
 }
 
-export interface SourceUsage {
-  source: string;
-  displayName: string;
-  costUsd: number;
-  totalTokens: number;
-  percentage: number;
-}
-
 export interface ModelUsage {
   model: string;
   source: string;
@@ -72,7 +64,6 @@ export interface AppSettings {
   trayDisplay: string;
   telemetryEnabled: boolean;
   crashLogEnabled: boolean;
-  priceSyncIntervalHours: number;
   updateCheckIntervalHours: number;
 }
 
@@ -88,23 +79,6 @@ export interface ModelPricing {
   priceSource: string;
   hasDefault?: boolean;
   createdAt?: string | null;
-}
-
-export interface SourceConfig {
-  source: string;
-  enabled: boolean;
-  customPath: string | null;
-  available: boolean;
-  status: string;
-}
-
-export interface SourceStatus {
-  source: string;
-  displayName: string;
-  available: boolean;
-  enabled: boolean;
-  recordCount: number;
-  lastError: string | null;
 }
 
 export interface DbStats {
@@ -132,13 +106,35 @@ export interface CrashEntry {
   context: Record<string, unknown>;
 }
 
+// ─── CC Switch Types ────────────────────────────────────────────────
+
+export interface CcSwitchInfo {
+  detected: boolean;
+  dbPath: string;
+  dbExists: boolean;
+  recordCount: number;
+  lastModified: string | null;
+}
+
+export interface CcSwitchStatus {
+  detected: boolean;
+  dbPath: string;
+  dbExists: boolean;
+  recordCount: number;
+  lastSyncedId: number;
+  lastSyncAt: string | null;
+}
+
+export interface SyncResult {
+  newRecords: number;
+  totalRecords: number;
+  durationMs: number;
+}
+
 // ─── Usage API ──────────────────────────────────────────────────────
 
 export const getUsageSummary = (period: string) =>
   invoke<UsageSummary>("get_usage_summary", { period });
-
-export const getUsageBySource = (period: string) =>
-  invoke<SourceUsage[]>("get_usage_by_source", { period });
 
 export const getUsageByModel = (period: string) =>
   invoke<ModelUsage[]>("get_usage_by_model", { period });
@@ -168,15 +164,6 @@ export const getSettings = () =>
 export const updateSettings = (settings: AppSettings) =>
   invoke<void>("update_settings", { settings });
 
-export const getSourceConfigs = () =>
-  invoke<SourceConfig[]>("get_source_configs");
-
-export const updateSourceConfig = (
-  source: string,
-  enabled: boolean,
-  customPath: string | null
-) => invoke<void>("update_source_config", { source, enabled, customPath });
-
 // ─── Pricing API ────────────────────────────────────────────────────
 
 export const getAllPrices = () =>
@@ -194,9 +181,6 @@ export const resetCustomPrice = (modelId: string) =>
 export const deleteCustomPrice = (modelId: string) =>
   invoke<void>("delete_custom_price", { modelId });
 
-export const recalculateCosts = (modelId: string) =>
-  invoke<number>("recalculate_costs", { modelId });
-
 export const countModelRecords = (modelId: string) =>
   invoke<number>("count_model_records", { modelId });
 
@@ -208,21 +192,16 @@ export const exportUsageCsv = (period: string) =>
 export const exportUsageJson = (period: string) =>
   invoke<string>("export_usage_json", { period });
 
-// ─── Scan API ───────────────────────────────────────────────────────
+// ─── CC Switch API ──────────────────────────────────────────────────
 
-export const rescan = () =>
-  invoke<number>("rescan");
+export const getCcSwitchStatus = () =>
+  invoke<CcSwitchStatus>("get_ccswitch_status");
 
-export const getSourceStatus = () =>
-  invoke<SourceStatus[]>("get_source_status");
+export const syncCcSwitch = () =>
+  invoke<SyncResult>("sync_ccswitch");
 
-export interface MissingModelPrice {
-  model: string;
-  source: string;
-}
-
-export const getModelsMissingPrices = () =>
-  invoke<MissingModelPrice[]>("get_models_without_prices");
+export const getCcSwitchDbPath = () =>
+  invoke<string>("get_ccswitch_db_path");
 
 // ─── Notification API ───────────────────────────────────────────────
 
@@ -244,8 +223,8 @@ export const checkForUpdate = () =>
 
 // ─── Tray API ─────────────────────────────────────────────────────────
 
-export const rebuildTrayMenu = (openText: string, rescanText: string, quitText: string) =>
-  invoke<void>("rebuild_tray_menu", { openText, rescanText, quitText });
+export const rebuildTrayMenu = (openText: string, syncText: string, quitText: string) =>
+  invoke<void>("rebuild_tray_menu", { openText, syncText, quitText });
 
 // ─── Crash Log API ────────────────────────────────────────────────────
 
@@ -258,12 +237,74 @@ export const clearCrashLogs = () =>
 export const getCrashIssueUrl = (id: string) =>
   invoke<string>("get_crash_issue_url", { id });
 
+// ─── Savings Analysis API ────────────────────────────────────────────
+
+export interface CacheEfficiency {
+  source: string;
+  displayName: string;
+  totalCacheRead: number;
+  totalCacheCreation: number;
+  totalInput: number;
+  hitRate: number | null;
+  cacheCostSavings: number;
+}
+
+export interface ModelUsageInsight {
+  model: string;
+  source: string;
+  costUsd: number;
+  totalTokens: number;
+  sessionCount: number;
+  costPerSession: number;
+  costPerMillionTokens: number;
+  costSharePct: number;
+}
+
+export interface ModelAnalysis {
+  insights: ModelUsageInsight[];
+  topCostModel: ModelUsageInsight | null;
+  topCostSharePct: number;
+  concentrationIndex: number;
+}
+
+export interface CostForecast {
+  dailyAvgCost: number;
+  projectedMonthlyCost: number;
+  daysRemaining: number;
+  daysElapsed: number;
+  monthlyLimit: number | null;
+  projectedOverBudget: boolean;
+  budgetExhaustionDays: number | null;
+  weekOverWeekChangePct: number | null;
+}
+
+export interface CostAnomaly {
+  date: string;
+  costUsd: number;
+  dailyAvg: number;
+  deviationFactor: number;
+  source: string | null;
+}
+
+export interface AnomalyReport {
+  anomalies: CostAnomaly[];
+  dailyAvgCost: number;
+  dailyStdDev: number;
+  thresholdFactor: number;
+}
+
+export interface SavingsAnalysis {
+  cacheEfficiency: CacheEfficiency[];
+  modelAnalysis: ModelAnalysis;
+  forecast: CostForecast;
+  anomalyReport: AnomalyReport;
+}
+
+export const getSavingsAnalysis = (period: string) =>
+  invoke<SavingsAnalysis>("get_savings_analysis", { period });
+
 // ─── Events ─────────────────────────────────────────────────────────
 
-/** Listen for data changes from the file watcher (real-time updates) */
-export const onDataChanged = (callback: () => void) =>
-  listen("tokenowl:data-changed", () => callback());
-
-/** Listen for rescan requests from tray menu */
-export const onRescanRequested = (callback: () => void) =>
-  listen("tokenowl:rescan-requested", () => callback());
+/** Listen for sync requests from tray menu */
+export const onSyncRequested = (callback: () => void) =>
+  listen("tokenowl:sync-requested", () => callback());

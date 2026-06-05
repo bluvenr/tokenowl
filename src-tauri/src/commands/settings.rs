@@ -2,8 +2,7 @@ use tauri::State;
 
 use crate::commands::usage::DbState;
 use crate::commands::remote::RemoteStateManaged;
-use crate::collectors::CollectorManager;
-use crate::models::settings::{AppSettings, ModelPricing, SourceConfig};
+use crate::models::settings::{AppSettings, ModelPricing};
 use crate::remote::download_source::update_shared;
 
 #[tauri::command]
@@ -18,7 +17,6 @@ pub fn update_settings(
     remote: State<'_, RemoteStateManaged>,
     settings: AppSettings,
 ) -> Result<(), String> {
-    // Read current settings to detect if auto_start actually changed
     let old_settings = db.get_app_settings().unwrap_or_default();
     db.update_app_settings(&settings).map_err(|e| e.to_string())?;
 
@@ -55,22 +53,6 @@ pub fn update_settings(
 }
 
 #[tauri::command]
-pub fn get_source_configs(db: State<'_, DbState>) -> Result<Vec<SourceConfig>, String> {
-    db.get_source_configs().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn update_source_config(
-    db: State<'_, DbState>,
-    source: String,
-    enabled: bool,
-    custom_path: Option<String>,
-) -> Result<(), String> {
-    db.update_source_config(&source, enabled, custom_path.as_deref())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn get_custom_prices(db: State<'_, DbState>) -> Result<Vec<ModelPricing>, String> {
     db.get_custom_prices().map_err(|e| e.to_string())
 }
@@ -101,14 +83,6 @@ pub fn get_all_prices(
     let remote_prices = remote.price_syncer.get_cached();
     let merged = crate::pricing::registry::merge_prices(&cached, &remote_prices, &custom);
     Ok(merged)
-}
-
-/// Recalculate cost_usd for all usage records of a specific model
-/// using the current (updated) price. Returns number of affected records.
-#[tauri::command]
-pub fn recalculate_costs(db: State<'_, DbState>, model_id: String) -> Result<u64, String> {
-    let manager = CollectorManager::new(db.inner().clone());
-    manager.recalculate_model_costs(&model_id).map_err(|e| e.to_string())
 }
 
 /// Count usage records for a specific model (used to decide whether to show recalc dialog)

@@ -8,6 +8,8 @@
     "opener:default",
     "shell:allow-open",
     "notification:default",
+    "dialog:default",
+    "fs:default",
     "core:window:allow-hide",
     "core:window:allow-show",
     "core:window:allow-set-focus",

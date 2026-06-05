@@ -1,9 +1,5 @@
 export const DATA_SOURCES = [
-  { key: "claude_code", name: "Claude Code" },
-  { key: "codex_cli", name: "Codex CLI" },
-  { key: "gemini_cli", name: "Gemini CLI" },
-  { key: "kimi_code", name: "Kimi Code" },
-  { key: "qwen_code", name: "Qwen Code" },
+  { key: "cc_switch", name: "CC Switch" },
 ] as const;
 
 export const LANGUAGES = [

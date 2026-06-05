@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useAppStore } from "@/stores/appStore";
-import { formatCost, formatTokens, getSourceColor } from "@/lib/format";
+import { formatCost, formatTokens, getModelColor } from "@/lib/format";
 import { getSettings } from "@/lib/tauri";
 import { useTranslation } from "react-i18next";
 import { X, Pin, Minimize2, LayoutDashboard } from "lucide-react";
 
 export function TrayPopup() {
-  const { refresh, summary, bySource, loading, error } = useAppStore();
+  const { refresh, summary, byModel, loading, error } = useAppStore();
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
@@ -182,18 +182,18 @@ export function TrayPopup() {
       {/* Header: hidden in mini mode */}
       {!isMini && (
         <div
-          className="flex items-center justify-between px-3 py-2 border-b cursor-grab active:cursor-grabbing select-none shrink-0"
+          className="flex items-center justify-between px-3 py-2.5 border-b border-border/60 cursor-grab active:cursor-grabbing select-none shrink-0"
           onMouseDown={handleDrag}
         >
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <img src="/favicon.png" alt="" className="w-4 h-4" />
-            <span className="text-sm font-bold">{t("app.name")}</span>
+            <span className="text-xs font-semibold tracking-tight">{t("app.name")}</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               aria-label={t("tray.open_dashboard")}
               title={t("tray.open_dashboard")}
-              className="p-0.5 rounded hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
               onClick={handleOpenDashboard}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -202,7 +202,7 @@ export function TrayPopup() {
             <button
               aria-label={t("tray.mini_mode")}
               title={t("tray.mini_mode")}
-              className="p-0.5 rounded hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
               onClick={toggleMini}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -211,10 +211,10 @@ export function TrayPopup() {
             <button
               aria-label={pinned ? t("tray.unpin") : t("tray.pin")}
               title={pinned ? t("tray.unpin") : t("tray.pin")}
-              className={`p-0.5 rounded transition-colors ${
+              className={`p-1 rounded-md transition-colors ${
                 pinned
-                  ? "bg-primary/15 text-primary hover:bg-primary/25"
-                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  ? "bg-primary/10 text-primary hover:bg-primary/15"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
               }`}
               onClick={togglePin}
               onMouseDown={(e) => e.stopPropagation()}
@@ -223,7 +223,7 @@ export function TrayPopup() {
             </button>
             <button
               aria-label={t("common.close")}
-              className="p-0.5 rounded hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
               onClick={handleClose}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -235,13 +235,13 @@ export function TrayPopup() {
 
       {/* Content */}
       <div
-        className={`flex-1 p-3 overflow-y-auto ${isMini ? "overflow-hidden" : "space-y-3"}`}
+        className={`flex-1 p-3 overflow-y-auto ${isMini ? "overflow-hidden" : "space-y-2.5"}`}
       >
         {isMini ? (
           /* Mini mode: ultra-compact, draggable, double-click to expand */
           <div className="flex flex-col items-center justify-center h-full select-none">
-            <div className="text-[10px] text-muted-foreground leading-tight">{t("tray.today_cost")}</div>
-            <div className="text-lg font-bold tracking-tight leading-snug">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide leading-tight">{t("tray.today_cost")}</div>
+            <div className="text-lg font-bold tracking-tight leading-snug tabular-nums">
               {summary ? formatCost(summary.totalCostUsd) : "$0.00"}
             </div>
             <div className="text-[9px] text-muted-foreground tabular-nums leading-tight">
@@ -259,44 +259,44 @@ export function TrayPopup() {
               </div>
             )}
             {/* Today's cost */}
-            <div className="rounded-lg border bg-card p-3">
-              <div className="text-xs text-muted-foreground mb-1">{t("tray.today_cost")}</div>
-              <div className="text-2xl font-bold tracking-tight">
+            <div className="rounded-lg border border-border/60 bg-card p-3">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">{t("tray.today_cost")}</div>
+              <div className="text-2xl font-bold tracking-tight tabular-nums">
                 {summary ? formatCost(summary.totalCostUsd) : "$0.00"}
               </div>
-              <div className="mt-1 flex gap-3 text-[11px] text-muted-foreground">
+              <div className="mt-1.5 flex gap-3 text-[10px] text-muted-foreground tabular-nums">
                 <span>{summary ? formatTokens(summary.totalTokens) : "0"} {t("dashboard.tokens_label")}</span>
                 <span>{summary?.sessionCount ?? 0} {t("dashboard.sessions")}</span>
               </div>
             </div>
 
-            {/* Per-tool breakdown */}
-            {bySource.length > 0 && (
-              <div className="rounded-lg border bg-card p-3">
-                <div className="text-xs text-muted-foreground mb-2">{t("dashboard.tool_breakdown")}</div>
+            {/* Per-model breakdown */}
+            {byModel.length > 0 && (
+              <div className="rounded-lg border border-border/60 bg-card p-3">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">{t("dashboard.tool_breakdown")}</div>
                 <div className="space-y-1.5">
-                  {bySource.map((s) => (
-                    <div key={s.source} className="flex items-center gap-2">
+                  {byModel.slice(0, 5).map((m, i) => (
+                    <div key={m.model} className="flex items-center gap-2">
                       <div
                         className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: getSourceColor(s.source) }}
+                        style={{ backgroundColor: getModelColor(m.model, i) }}
                       />
-                      <span className="text-xs flex-1 truncate">{s.displayName}</span>
-                      <span className="text-xs font-medium tabular-nums">{formatCost(s.costUsd)}</span>
+                      <span className="text-[11px] flex-1 truncate">{m.model.length > 20 ? m.model.slice(0, 18) + "..." : m.model}</span>
+                      <span className="text-[11px] font-medium tabular-nums">{formatCost(m.costUsd)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {bySource.length === 0 && !loading && (
-              <div className="text-center text-sm text-muted-foreground py-6">
+            {byModel.length === 0 && !loading && (
+              <div className="text-center text-xs text-muted-foreground py-6">
                 {t("dashboard.no_data")}
               </div>
             )}
 
             {loading && (
-              <div className="text-center text-xs text-muted-foreground py-4">
+              <div className="text-center text-[10px] text-muted-foreground uppercase tracking-wide py-4">
                 {t("common.loading")}
               </div>
             )}

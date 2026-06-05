@@ -14,8 +14,8 @@ pub enum AppError {
     #[error("Parse error: {message}")]
     Parse { message: String },
 
-    #[error("Collector error ({collector}): {message}")]
-    Collector { collector: String, message: String },
+    #[error("Sync error ({origin}): {message}")]
+    Sync { origin: String, message: String },
 
     #[error("Pricing error: {0}")]
     Pricing(String),
@@ -27,12 +27,6 @@ pub enum AppError {
     NotFound(String),
 }
 
-impl From<notify::Error> for AppError {
-    fn from(e: notify::Error) -> Self {
-        AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-    }
-}
-
 impl AppError {
     pub fn error_type(&self) -> &str {
         match self {
@@ -40,7 +34,7 @@ impl AppError {
             AppError::Database(_) => "database_error",
             AppError::JsonParse(_) => "json_parse_error",
             AppError::Parse { .. } => "parse_error",
-            AppError::Collector { .. } => "collector_error",
+            AppError::Sync { .. } => "sync_error",
             AppError::Pricing(_) => "pricing_error",
             AppError::Config(_) => "config_error",
             AppError::NotFound(_) => "not_found",
@@ -54,7 +48,7 @@ impl AppError {
             AppError::Database(e) => e.to_string(),
             AppError::JsonParse(e) => e.to_string(),
             AppError::Parse { message } => message.clone(),
-            AppError::Collector { collector, message } => format!("[{}] {}", collector, message),
+            AppError::Sync { origin, message } => format!("[{}] {}", origin, message),
             AppError::Pricing(msg) => msg.clone(),
             AppError::Config(msg) => msg.clone(),
             AppError::NotFound(msg) => msg.clone(),

@@ -17,7 +17,6 @@ TokenOwl 是一款轻量级桌面小组件，实时追踪你的 AI 编程工具�
 | Codex CLI | `~/.codex/sessions/` | JSONL |
 | Gemini CLI | `~/.gemini/tmp/` | JSON |
 | Kimi Code | `~/.kimi/sessions/` | JSONL |
-| Qwen Code | `~/.qwen/history/` | JSON |
 
 ## 功能特性
 
