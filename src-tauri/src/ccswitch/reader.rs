@@ -367,10 +367,16 @@ impl CcSwitchReader {
         #[cfg(target_os = "windows")]
         {
             use std::process::Command;
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+
             // Check if port 8080 is listening (CC Switch default port)
-            if let Ok(output) = Command::new("netstat").args(["-an"]).output() {
+            if let Ok(output) = Command::new("netstat")
+                .args(["-an"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
                 if let Ok(text) = String::from_utf8(output.stdout) {
-                    // CC Switch typically listens on 8080
                     if text.contains("LISTENING") && text.contains(":8080") {
                         return true;
                     }
@@ -379,6 +385,7 @@ impl CcSwitchReader {
             // Fallback: check for cc-switch process
             if let Ok(output) = Command::new("tasklist")
                 .args(["/FI", "IMAGENAME eq cc-switch.exe", "/NH"])
+                .creation_flags(CREATE_NO_WINDOW)
                 .output()
             {
                 if let Ok(text) = String::from_utf8(output.stdout) {
