@@ -17,7 +17,7 @@
 
 ## Overview
 
-TokenOwl is a desktop application for tracking AI coding assistant costs by analyzing proxy data from [CC Switch](https://github.com/anthropics/cc-switch). It provides detailed usage analytics, budget management, and cost attribution across multiple AI providers.
+TokenOwl is a desktop application for tracking AI coding assistant costs by analyzing proxy data from [CC Switch](https://github.com/farion1231/cc-switch). It provides detailed usage analytics, budget management, and cost attribution across multiple AI providers.
 
 ## Features
 

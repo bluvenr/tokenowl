@@ -17,7 +17,7 @@
 
 ## 简介
 
-TokenOwl 是一款桌面应用，通过分析 [CC Switch](https://github.com/anthropics/cc-switch) 代理数据来追踪 AI 编码助手的使用成本。提供详细的使用分析、预算管理和多供应商成本归因。
+TokenOwl 是一款桌面应用，通过分析 [CC Switch](https://github.com/farion1231/cc-switch) 代理数据来追踪 AI 编码助手的使用成本。提供详细的使用分析、预算管理和多供应商成本归因。
 
 ## 功能特性
 
