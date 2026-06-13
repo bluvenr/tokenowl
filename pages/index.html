@@ -66,22 +66,20 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg-base: #0b0f1a; --bg-surface: #111827; --bg-card: #1a2235; --bg-elevated: #1f2b42;
-      --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.14);
-      --text-primary: #f0f4fc; --text-secondary: #8b9dc3; --text-muted: #546380;
-      --accent-green: #34d399; --accent-blue: #60a5fa; --accent-purple: #c084fc;
-      --accent-orange: #fb923c; --accent-emerald: #10b981; --accent-cyan: #22d3ee;
-      --grad-start: #059669; --grad-end: #0891b2;
+      --bg-base: #fff; --bg-surface: #f7f7f8; --bg-card: #fff; --bg-elevated: #f2f2f3;
+      --border: #e5e7eb; --border-hover: #d1d5db;
+      --text-primary: #111; --text-secondary: #555; --text-muted: #999;
+      --accent: #0ea5e9;
       --font-body: 'Outfit', sans-serif; --font-mono: 'JetBrains Mono', monospace;
     }
     html { scroll-behavior: smooth; }
-    body { font-family: var(--font-body); background: var(--bg-base); color: var(--text-primary); line-height: 1.6; overflow-x: hidden; }
-    a { color: var(--accent-blue); text-decoration: none; transition: color .2s; }
-    a:hover { color: var(--accent-cyan); }
+    body { font-family: var(--font-body); background: var(--bg-base); color: var(--text-primary); line-height: 1.6; overflow-x: hidden; background-image: radial-gradient(circle, #e5e7eb 1px, transparent 1px); background-size: 24px 24px; }
+    a { color: var(--text-primary); text-decoration: none; transition: color .2s; }
+    a:hover { color: var(--accent); }
     .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
 
     /* ─── Nav ─── */
-    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(11,15,26,.82); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(255,255,255,.88); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
     .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; max-width: 1120px; margin: 0 auto; padding: 0 24px; }
     .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; color: var(--text-primary); }
     .nav-brand img { width: 28px; height: 28px; border-radius: 6px; }
@@ -89,65 +87,64 @@
     .nav-links a { color: var(--text-secondary); font-size: .9rem; font-weight: 500; transition: color .2s; }
     .nav-links a:hover { color: var(--text-primary); }
     .nav-right { display: flex; align-items: center; gap: 12px; }
-    .lang-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 5px 10px; font-size: .8rem; font-family: var(--font-body); cursor: pointer; font-weight: 500; transition: all .2s; }
+    .lang-btn { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 5px 10px; font-size: .8rem; font-family: var(--font-body); cursor: pointer; font-weight: 500; transition: all .2s; }
     .lang-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border-hover); }
-    .gh-btn { display: inline-flex; align-items: center; gap: 7px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; padding: 6px 14px; font-size: .85rem; font-weight: 500; transition: all .2s; }
-    .gh-btn:hover { background: var(--bg-elevated); border-color: var(--border-hover); color: var(--text-primary); }
+    .gh-btn { display: inline-flex; align-items: center; gap: 7px; background: #111; border: 1px solid #111; color: #fff; border-radius: 8px; padding: 6px 14px; font-size: .85rem; font-weight: 500; transition: all .2s; }
+    .gh-btn:hover { background: #333; border-color: #333; color: #fff; }
     .gh-btn svg { width: 16px; height: 16px; fill: currentColor; }
     .hamburger { display: none; background: none; border: none; color: var(--text-primary); cursor: pointer; padding: 4px; }
     .hamburger svg { width: 24px; height: 24px; }
-    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: var(--bg-surface); border-bottom: 1px solid var(--border); padding: 16px 24px; z-index: 99; flex-direction: column; gap: 12px; }
+    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 16px 24px; z-index: 99; flex-direction: column; gap: 12px; }
     .mobile-menu.open { display: flex; }
     .mobile-menu a { color: var(--text-secondary); font-size: .95rem; font-weight: 500; padding: 8px 0; border-bottom: 1px solid var(--border); }
     .mobile-menu a:last-child { border-bottom: none; }
 
     /* ─── Hero ─── */
-    .hero { position: relative; padding: 140px 0 100px; text-align: center; overflow: hidden; }
-    .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(16,185,129,.12) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 70% 20%, rgba(8,145,178,.10) 0%, transparent 70%); pointer-events: none; }
-    .hero-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); background-size: 60px 60px; mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 20%, transparent 100%); -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 20%, transparent 100%); }
-    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); color: var(--accent-emerald); font-size: .82rem; font-weight: 500; padding: 5px 14px; border-radius: 100px; margin-bottom: 24px; }
-    .hero-badge span:first-child { width: 6px; height: 6px; background: var(--accent-emerald); border-radius: 50%; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
-    .hero-icon { width: 88px; height: 88px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 28px; box-shadow: 0 0 0 1px rgba(16,185,129,.2), 0 20px 60px rgba(16,185,129,.15); overflow: hidden; }
+    .hero { position: relative; padding: 140px 0 100px; text-align: center; }
+    .hero::before { content: ''; position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 60%; max-width: 480px; aspect-ratio: 1; background: radial-gradient(circle, rgba(14,165,233,.07) 0%, transparent 70%); pointer-events: none; border-radius: 50%; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary); font-size: .82rem; font-weight: 500; padding: 5px 14px; border-radius: 100px; margin-bottom: 24px; }
+    .hero-badge span:first-child { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; box-shadow: 0 0 0 0 rgba(14,165,233,.4); }
+    @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(14,165,233,.4); } 50% { opacity: .6; box-shadow: 0 0 0 6px rgba(14,165,233,0); } }
+    .hero-icon { width: 88px; height: 88px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 28px; border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,.06), 0 0 0 4px rgba(14,165,233,.08); overflow: hidden; position: relative; z-index: 1; }
     .hero-icon img { width: 100%; height: 100%; object-fit: cover; }
     .hero h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; margin-bottom: 20px; }
-    .hero h1 .gradient-text { background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero h1 .gradient-text { background: linear-gradient(135deg, var(--text-primary) 40%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .hero-desc { font-size: 1.15rem; color: var(--text-secondary); max-width: 580px; margin: 0 auto 40px; line-height: 1.7; }
     .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
     .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 26px; border-radius: 10px; font-size: .95rem; font-weight: 600; font-family: var(--font-body); cursor: pointer; border: none; transition: all .2s; }
-    .btn-primary { background: linear-gradient(135deg, var(--grad-start), var(--grad-end)); color: #fff; box-shadow: 0 4px 20px rgba(16,185,129,.25); }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(16,185,129,.35); }
-    .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); }
-    .btn-secondary:hover { background: var(--bg-elevated); border-color: var(--border-hover); }
+    .btn-primary { background: #111; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    .btn-primary:hover { background: #222; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.16), 0 0 0 1px rgba(14,165,233,.15); }
+    .btn-secondary { background: #fff; border: 1px solid var(--border); color: var(--text-primary); }
+    .btn-secondary:hover { background: var(--bg-surface); border-color: var(--border-hover); }
     .btn svg { width: 18px; height: 18px; }
     .hero-platforms { margin-top: 20px; font-size: .82rem; color: var(--text-muted); }
 
     /* ─── Section Common ─── */
-    section { padding: 80px 0; }
-    .section-label { display: inline-flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-emerald); margin-bottom: 12px; }
+    section { padding: 80px 0; position: relative; }
+    .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border) 20%, var(--accent) 50%, var(--border) 80%, transparent); opacity: .4; }
+    .section-label { display: inline-flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+    .section-label::before { content: ''; width: 16px; height: 1px; background: var(--accent); }
     .section-title { font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 700; letter-spacing: -.02em; margin-bottom: 12px; }
     .section-desc { font-size: 1.05rem; color: var(--text-secondary); max-width: 600px; }
     .section-header { text-align: center; margin-bottom: 56px; }
     .section-header .section-desc { margin: 0 auto; }
 
     /* ─── Features ─── */
-    .features-section { background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .features-section { background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); position: relative; }
+    .features-section::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(circle, var(--border) 1px, transparent 1px); background-size: 24px 24px; opacity: .5; pointer-events: none; }
     .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-    .feature-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 28px; transition: all .25s; }
-    .feature-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-    .feature-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 1.3rem; }
-    .fi-green { background: rgba(52,211,153,.12); color: var(--accent-green); }
-    .fi-blue { background: rgba(96,165,250,.12); color: var(--accent-blue); }
-    .fi-purple { background: rgba(192,132,252,.12); color: var(--accent-purple); }
-    .fi-orange { background: rgba(251,146,60,.12); color: var(--accent-orange); }
-    .fi-cyan { background: rgba(34,211,238,.12); color: var(--accent-cyan); }
+    .feature-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 28px; transition: all .25s; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .feature-card:hover { border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,.06), 0 0 0 1px rgba(14,165,233,.1); transform: translateY(-2px); }
+    .feature-card:hover .feature-icon { background: rgba(14,165,233,.1); border-color: rgba(14,165,233,.2); }
+    .feature-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 1.3rem; background: rgba(14,165,233,.06); border: 1px solid rgba(14,165,233,.12); color: var(--accent); }
     .feature-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; }
     .feature-card p { font-size: .9rem; color: var(--text-secondary); line-height: 1.65; }
 
     /* ─── Use Cases ─── */
     .usecases-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
-    .usecase-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
-    .usecase-tag { font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; display: block; }
+    .usecase-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,.04); transition: all .25s; border-left: 3px solid transparent; }
+    .usecase-card:hover { border-left-color: var(--accent); box-shadow: 0 6px 20px rgba(0,0,0,.06); transform: translateY(-2px); }
+    .usecase-tag { font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; display: block; color: var(--text-muted); }
     .usecase-card h4 { font-size: .95rem; font-weight: 600; margin-bottom: 6px; }
     .usecase-card p { font-size: .87rem; color: var(--text-secondary); line-height: 1.6; }
 
@@ -155,30 +152,35 @@
     .quickstart-section { background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
     .qs-layout { display: grid; grid-template-columns: 1fr 1.3fr; gap: 48px; align-items: start; }
     .qs-steps { display: flex; flex-direction: column; gap: 24px; }
-    .qs-step { display: flex; gap: 16px; }
-    .qs-num { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); color: var(--accent-emerald); font-weight: 700; font-size: .85rem; display: flex; align-items: center; justify-content: center; }
+    .qs-step { display: flex; gap: 16px; padding: 14px 16px; border-radius: 10px; transition: all .2s; }
+    .qs-step:hover { background: var(--bg-surface); }
+    .qs-step:hover .qs-num { border-color: var(--accent); color: var(--accent); }
+    .qs-num { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); font-weight: 700; font-size: .85rem; display: flex; align-items: center; justify-content: center; transition: all .2s; }
     .qs-step-content h4 { font-size: .95rem; font-weight: 600; margin-bottom: 4px; }
     .qs-step-content p { font-size: .87rem; color: var(--text-secondary); }
     .qs-step-content code { background: var(--bg-elevated); padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: .82rem; }
-    .qs-terminal { background: #0d1420; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-family: var(--font-mono); font-size: .82rem; }
-    .qs-term-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02); }
+    .qs-terminal { background: #111; border: 1px solid #333; border-radius: 12px; overflow: hidden; font-family: var(--font-mono); font-size: .82rem; box-shadow: 0 12px 40px rgba(0,0,0,.12), 0 0 60px rgba(14,165,233,.06); }
+    .qs-term-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #333; background: #1a1a1a; }
     .qs-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .qs-dot-r { background: #f87171; } .qs-dot-y { background: #fbbf24; } .qs-dot-g { background: #4ade80; }
-    .qs-term-title { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
-    .qs-term-body { padding: 20px; line-height: 2; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
-    .qs-term-body .c { color: var(--text-muted); } .qs-term-body .k { color: var(--accent-emerald); } .qs-term-body .s { color: var(--accent-cyan); } .qs-term-body .p { color: var(--text-muted); user-select: none; }
+    .qs-dot-r { background: #555; } .qs-dot-y { background: #555; } .qs-dot-g { background: #555; }
+    .qs-term-title { margin-left: auto; font-size: .75rem; color: #777; }
+    .qs-term-body { padding: 20px; line-height: 2; overflow-x: auto; white-space: pre-wrap; word-break: break-all; color: #ddd; }
+    .qs-term-body .c { color: #666; } .qs-term-body .k { color: #eee; } .qs-term-body .s { color: #888; } .qs-term-body .p { color: #555; user-select: none; }
 
     /* ─── Tech Stack ─── */
-    .tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
-    .tech-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 14px; text-align: center; transition: all .2s; }
-    .tech-card:hover { border-color: var(--border-hover); }
-    .tech-card-icon { font-size: 1.6rem; margin-bottom: 8px; }
-    .tech-card h4 { font-size: .88rem; font-weight: 600; margin-bottom: 3px; }
-    .tech-card p { font-size: .78rem; color: var(--text-muted); }
+    .tech-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .tech-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 20px 16px; text-align: center; transition: all .25s; box-shadow: 0 1px 3px rgba(0,0,0,.04); cursor: default; }
+    .tech-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+    .tech-card img { width: 32px; height: 32px; margin: 0 auto 10px; display: block; filter: grayscale(1); opacity: .45; transition: all .3s; }
+    .tech-fallback { filter: grayscale(1); opacity: .45; transition: all .3s; }
+    .tech-card:hover img, .tech-card:hover .tech-fallback { filter: grayscale(0); opacity: 1; }
+    .tech-card h4 { font-size: .9rem; font-weight: 600; margin-bottom: 3px; }
+    .tech-card p { font-size: .78rem; color: var(--text-muted); line-height: 1.4; }
 
     /* ─── CTA ─── */
     .cta-section { background: var(--bg-surface); border-top: 1px solid var(--border); text-align: center; }
-    .cta-box { background: linear-gradient(135deg, rgba(16,185,129,.06), rgba(8,145,178,.06)); border: 1px solid rgba(16,185,129,.2); border-radius: 20px; padding: 56px 32px; }
+    .cta-box { background: var(--bg-base); border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 20px; padding: 56px 32px; box-shadow: 0 4px 16px rgba(0,0,0,.04); position: relative; overflow: hidden; }
+    .cta-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 120px; background: linear-gradient(180deg, rgba(14,165,233,.04) 0%, transparent 100%); pointer-events: none; }
     .cta-box h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 700; margin-bottom: 14px; }
     .cta-box p { color: var(--text-secondary); font-size: 1rem; max-width: 520px; margin: 0 auto 32px; }
     .cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
@@ -187,11 +189,46 @@
     .gh-stat svg { width: 16px; height: 16px; fill: currentColor; }
 
     /* ─── Footer ─── */
-    footer { border-top: 1px solid var(--border); padding: 32px 0; font-size: .85rem; color: var(--text-muted); }
+    footer { border-top: 1px solid var(--border); padding: 32px 0; font-size: .85rem; color: var(--text-muted); background: var(--bg-surface); }
     .footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
     .footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
     .footer-links a { color: var(--text-muted); transition: color .2s; }
-    .footer-links a:hover { color: var(--text-secondary); }
+    .footer-links a:hover { color: var(--text-primary); }
+
+    /* ─── Dark Mode ─── */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-base: #0a0a0a; --bg-surface: #131313; --bg-card: #111; --bg-elevated: #1c1c1c;
+        --border: rgba(255,255,255,.08); --border-hover: rgba(255,255,255,.16);
+        --text-primary: #e8e8e8; --text-secondary: #999; --text-muted: #666;
+        color-scheme: dark;
+      }
+      body { background-image: radial-gradient(circle, rgba(255,255,255,.04) 1px, transparent 1px); }
+      nav { background: rgba(10,10,10,.88); }
+      .mobile-menu { background: #111; }
+      .hero::before { background: radial-gradient(circle, rgba(14,165,233,.1) 0%, transparent 70%); }
+      .hero-icon { box-shadow: 0 8px 32px rgba(0,0,0,.3), 0 0 0 4px rgba(14,165,233,.12); }
+      .btn-primary { background: #fff; color: #111; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+      .btn-primary:hover { background: #f0f0f0; box-shadow: 0 4px 16px rgba(0,0,0,.4), 0 0 0 1px rgba(14,165,233,.2); }
+      .btn-secondary { background: #1a1a1a; }
+      .btn-secondary:hover { background: #222; }
+      .gh-btn { background: #fff; border-color: #fff; color: #111; }
+      .gh-btn:hover { background: #ddd; border-color: #ddd; color: #111; }
+      .feature-card { box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+      .feature-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.3), 0 0 0 1px rgba(14,165,233,.15); }
+      .feature-icon { background: rgba(14,165,233,.1); border-color: rgba(14,165,233,.15); }
+      .feature-card:hover .feature-icon { background: rgba(14,165,233,.15); border-color: rgba(14,165,233,.25); }
+      .usecase-card { box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+      .usecase-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+      .tech-card { box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+      .tech-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+      .qs-terminal { border-color: #2a2a2a; box-shadow: 0 12px 40px rgba(0,0,0,.4), 0 0 80px rgba(14,165,233,.08); }
+      .qs-term-header { background: #161616; border-color: #2a2a2a; }
+      .cta-box { box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+      .cta-box::before { background: linear-gradient(180deg, rgba(14,165,233,.06) 0%, transparent 100%); }
+      .section-divider { opacity: .3; }
+      .features-section::before { opacity: .3; }
+    }
 
     /* ─── Animations ─── */
     .fade-in { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
@@ -210,7 +247,7 @@
       .hero-desc { font-size: 1rem; }
       .features-grid { grid-template-columns: 1fr; }
       .usecases-grid { grid-template-columns: 1fr; }
-      .tech-grid { grid-template-columns: repeat(2, 1fr); }
+      .tech-grid { grid-template-columns: repeat(4, 1fr); }
       .cta-box { padding: 40px 20px; }
       .gh-stats { flex-direction: column; align-items: center; gap: 8px; }
       .footer-inner { flex-direction: column; text-align: center; }
@@ -259,8 +296,7 @@
 </nav>
 
 <section class="hero">
-  <div class="hero-grid"></div>
-  <div class="container" style="position:relative;">
+  <div class="container">
     <div class="hero-badge"><span></span> <span data-i18n="hero.badge">Open Source · MIT Licensed</span></div>
     <div class="hero-icon"><img src="./assets/icon-256.png" alt="TokenOwl" width="56" height="56" /></div>
     <h1><span class="gradient-text" data-i18n="hero.title1">AI Coding Cost</span><br /><span data-i18n="hero.title2">Tracker</span></h1>
@@ -279,6 +315,8 @@
   </div>
 </section>
 
+<div class="section-divider"></div>
+
 <section class="features-section" id="features">
   <div class="container">
     <div class="section-header fade-in">
@@ -287,17 +325,20 @@
       <p class="section-desc" data-i18n="features.desc">From real-time dashboards to budget alerts — full visibility into every token, every request, every dollar.</p>
     </div>
     <div class="features-grid">
-      <div class="feature-card fade-in"><div class="feature-icon fi-green">$</div><h3 data-i18n="f1.title">Real-Time Cost Dashboard</h3><p data-i18n="f1.desc">Instant overview of total spend, token consumption, and request counts. Track trends over time with period comparisons and anomaly detection.</p></div>
-      <div class="feature-card fade-in"><div class="feature-icon fi-blue">⬡</div><h3 data-i18n="f2.title">Cost Attribution</h3><p data-i18n="f2.desc">Break down costs by model, provider, and token type — input, output, and cache tokens each tracked separately for precise accounting.</p></div>
-      <div class="feature-card fade-in"><div class="feature-icon fi-purple">◎</div><h3 data-i18n="f3.title">Budget Management</h3><p data-i18n="f3.desc">Set daily, weekly, or monthly spending limits with configurable alert thresholds. Get notified before you overshoot your budget.</p></div>
-      <div class="feature-card fade-in"><div class="feature-icon fi-orange">◈</div><h3 data-i18n="f4.title">Provider Analytics</h3><p data-i18n="f4.desc">Visualize usage distribution and health across all your AI providers. Understand where your money goes at a glance.</p></div>
-      <div class="feature-card fade-in"><div class="feature-icon fi-cyan">⇌</div><h3 data-i18n="f5.title">CC Switch Integration</h3><p data-i18n="f5.desc">One-click sync from CC Switch proxy logs. No manual configuration needed — just connect and start tracking immediately.</p></div>
-      <div class="feature-card fade-in"><div class="feature-icon fi-green">▣</div><h3 data-i18n="f6.title">Tray Mini Mode</h3><p data-i18n="f6.desc">Compact always-on-top widget showing today's token usage and budget progress. Stay informed without switching windows.</p></div>
-      <div class="feature-card fade-in"><div class="feature-icon fi-blue">↓</div><h3 data-i18n="f7.title">Data Export</h3><p data-i18n="f7.desc">Export usage data as CSV or JSON for further analysis, reporting, or integration with your existing cost management workflows.</p></div>
-      <div class="feature-card fade-in"><div class="feature-icon fi-purple">🌐</div><h3 data-i18n="f8.title">i18n & Auto Update</h3><p data-i18n="f8.desc">Full English and Chinese support with system language auto-detection. Built-in update checker keeps you on the latest version.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">$</div><h3 data-i18n="f1.title">Real-Time Cost Dashboard</h3><p data-i18n="f1.desc">Instant overview of total spend, token consumption, and request counts. Track trends over time with period comparisons and anomaly detection.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">⬡</div><h3 data-i18n="f2.title">Cost Attribution</h3><p data-i18n="f2.desc">Break down costs by model, provider, and token type — input, output, and cache tokens each tracked separately for precise accounting.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">◎</div><h3 data-i18n="f3.title">Budget Management</h3><p data-i18n="f3.desc">Set daily, weekly, or monthly spending limits with configurable alert thresholds. Get notified before you overshoot your budget.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">◈</div><h3 data-i18n="f4.title">Provider Analytics</h3><p data-i18n="f4.desc">Visualize usage distribution and health across all your AI providers. Understand where your money goes at a glance.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">⇌</div><h3 data-i18n="f5.title">CC Switch Integration</h3><p data-i18n="f5.desc">One-click sync from CC Switch proxy logs. No manual configuration needed — just connect and start tracking immediately.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">▣</div><h3 data-i18n="f6.title">Tray Mini Mode</h3><p data-i18n="f6.desc">Compact always-on-top widget showing today's token usage and budget progress. Stay informed without switching windows.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">↓</div><h3 data-i18n="f7.title">Data Export</h3><p data-i18n="f7.desc">Export usage data as CSV or JSON for further analysis, reporting, or integration with your existing cost management workflows.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">🌐</div><h3 data-i18n="f8.title">i18n & Auto Update</h3><p data-i18n="f8.desc">Full English and Chinese support with system language auto-detection. Built-in update checker keeps you on the latest version.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon">⊘</div><h3 data-i18n="f9.title">Privacy First</h3><p data-i18n="f9.desc">All data stored locally via SQLite. No cloud uploads, no telemetry — your usage data stays on your machine.</p></div>
     </div>
   </div>
 </section>
+
+<div class="section-divider"></div>
 
 <section id="usecases">
   <div class="container">
@@ -306,13 +347,15 @@
       <h2 class="section-title" data-i18n="uc.title">Built for developers who care<br />about AI usage costs</h2>
     </div>
     <div class="usecases-grid">
-      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-green);" data-i18n="u1.tag">Individual Developer</span><h4 data-i18n="u1.title">Track Your Daily AI Spend</h4><p data-i18n="u1.desc">Know exactly how much you spend on Claude, GPT, and other models. Set personal budgets and avoid surprise bills.</p></div>
-      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-blue);" data-i18n="u2.tag">Team Lead / Manager</span><h4 data-i18n="u2.title">Monitor Team Usage</h4><p data-i18n="u2.desc">Aggregate costs across team members. Identify heavy usage patterns and optimize model selection for your team's workflow.</p></div>
-      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-purple);" data-i18n="u3.tag">Startup / Small Company</span><h4 data-i18n="u3.title">Control AI Infrastructure Costs</h4><p data-i18n="u3.desc">AI coding tools can quietly drain budgets. TokenOwl gives you the data to make informed decisions about which tools and models to invest in.</p></div>
-      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-orange);" data-i18n="u4.tag">Cost-Conscious Org</span><h4 data-i18n="u4.title">Audit & Compliance</h4><p data-i18n="u4.desc">Export detailed usage reports for finance teams. Attribute costs to projects, models, or departments with full data transparency.</p></div>
+      <div class="usecase-card fade-in"><span class="usecase-tag" data-i18n="u1.tag">Individual Developer</span><h4 data-i18n="u1.title">Track Your Daily AI Spend</h4><p data-i18n="u1.desc">Know exactly how much you spend on Claude, GPT, and other models. Set personal budgets and avoid surprise bills.</p></div>
+      <div class="usecase-card fade-in"><span class="usecase-tag" data-i18n="u2.tag">Team Lead / Manager</span><h4 data-i18n="u2.title">Monitor Team Usage</h4><p data-i18n="u2.desc">Aggregate costs across team members. Identify heavy usage patterns and optimize model selection for your team's workflow.</p></div>
+      <div class="usecase-card fade-in"><span class="usecase-tag" data-i18n="u3.tag">Startup / Small Company</span><h4 data-i18n="u3.title">Control AI Infrastructure Costs</h4><p data-i18n="u3.desc">AI coding tools can quietly drain budgets. TokenOwl gives you the data to make informed decisions about which tools and models to invest in.</p></div>
+      <div class="usecase-card fade-in"><span class="usecase-tag" data-i18n="u4.tag">Cost-Conscious Org</span><h4 data-i18n="u4.title">Audit & Compliance</h4><p data-i18n="u4.desc">Export detailed usage reports for finance teams. Attribute costs to projects, models, or departments with full data transparency.</p></div>
     </div>
   </div>
 </section>
+
+<div class="section-divider"></div>
 
 <section class="quickstart-section" id="quickstart">
   <div class="container">
@@ -347,6 +390,8 @@
   </div>
 </section>
 
+<div class="section-divider"></div>
+
 <section id="tech">
   <div class="container">
     <div class="section-header fade-in">
@@ -355,22 +400,24 @@
       <p class="section-desc" data-i18n="tech.desc">Built with a carefully chosen stack that prioritizes performance and developer experience.</p>
     </div>
     <div class="tech-grid fade-in">
-      <div class="tech-card"><div class="tech-card-icon">🦀</div><h4>Tauri v2</h4><p data-i18n="tech.t1">Desktop framework</p></div>
-      <div class="tech-card"><div class="tech-card-icon">⚛️</div><h4>React 19</h4><p data-i18n="tech.t2">UI library</p></div>
-      <div class="tech-card"><div class="tech-card-icon">🦀</div><h4>Rust</h4><p data-i18n="tech.t3">Backend engine</p></div>
-      <div class="tech-card"><div class="tech-card-icon">🗃️</div><h4>SQLite</h4><p data-i18n="tech.t4">Local database</p></div>
-      <div class="tech-card"><div class="tech-card-icon">🎨</div><h4>TailwindCSS 4</h4><p data-i18n="tech.t5">Utility-first CSS</p></div>
-      <div class="tech-card"><div class="tech-card-icon">📊</div><h4>Recharts</h4><p data-i18n="tech.t6">Data visualization</p></div>
-      <div class="tech-card"><div class="tech-card-icon">🐻</div><h4>Zustand</h4><p data-i18n="tech.t7">State management</p></div>
-      <div class="tech-card"><div class="tech-card-icon">🌍</div><h4>i18next</h4><p data-i18n="tech.t8">Internationalization</p></div>
+      <div class="tech-card" data-color="#FFC131"><img src="https://cdn.simpleicons.org/tauri/FFC131" alt="" onerror="this.style.display='none'" /><h4>Tauri v2</h4><p data-i18n="tech.t1">Desktop framework</p></div>
+      <div class="tech-card" data-color="#61DAFB"><img src="https://cdn.simpleicons.org/react/61DAFB" alt="" onerror="this.style.display='none'" /><h4>React 19</h4><p data-i18n="tech.t2">UI library</p></div>
+      <div class="tech-card" data-color="#DEA584"><img src="https://cdn.simpleicons.org/rust/DEA584" alt="" onerror="this.style.display='none'" /><h4>Rust</h4><p data-i18n="tech.t3">Backend engine</p></div>
+      <div class="tech-card" data-color="#003B57"><img src="https://cdn.simpleicons.org/sqlite/003B57" alt="" onerror="this.style.display='none'" /><h4>SQLite</h4><p data-i18n="tech.t4">Local database</p></div>
+      <div class="tech-card" data-color="#06B6D4"><img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" alt="" onerror="this.style.display='none'" /><h4>TailwindCSS 4</h4><p data-i18n="tech.t5">Utility-first CSS</p></div>
+      <div class="tech-card" data-color="#2563EB"><img src="https://cdn.simpleicons.org/apacheecharts/2563EB" alt="" onerror="this.style.display='none'" /><h4>Recharts</h4><p data-i18n="tech.t6">Data visualization</p></div>
+      <div class="tech-card" data-color="#44211F"><svg viewBox="0 0 32 32" width="32" height="32" style="margin:0 auto 10px;display:block;opacity:.45;transition:all .3s" class="tech-fallback"><circle cx="16" cy="16" r="14" fill="none" stroke="#44211F" stroke-width="1.5"/><text x="16" y="21" text-anchor="middle" font-size="14" font-weight="700" fill="#44211F" font-family="sans-serif">Z</text></svg><h4>Zustand</h4><p data-i18n="tech.t7">State management</p></div>
+      <div class="tech-card" data-color="#26A69A"><img src="https://cdn.simpleicons.org/i18next/26A69A" alt="" onerror="this.style.display='none'" /><h4>i18next</h4><p data-i18n="tech.t8">Internationalization</p></div>
     </div>
   </div>
 </section>
 
+<div class="section-divider"></div>
+
 <section class="cta-section">
   <div class="container">
     <div class="cta-box fade-in">
-      <h2 data-i18n="cta.title">Ready to take control of your<br /><span style="background:linear-gradient(135deg,var(--accent-emerald),var(--accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;" data-i18n="cta.highlight">AI coding costs?</span></h2>
+      <h2 data-i18n="cta.title">Ready to take control of your<br /><span data-i18n="cta.highlight">AI coding costs?</span></h2>
       <p data-i18n="cta.desc">TokenOwl is open source and free to use. Star us on GitHub to show your support and stay updated on new releases.</p>
       <div class="cta-actions">
         <a class="btn btn-primary" href="https://github.com/bluvenr/tokenowl/releases/latest" target="_blank" rel="noopener">
@@ -394,7 +441,7 @@
 <footer>
   <div class="container">
     <div class="footer-inner">
-      <div><span style="font-weight:600;color:var(--text-secondary);">TokenOwl</span> &nbsp;·&nbsp; © 2025 TokenOwl Contributors &nbsp;·&nbsp; <a href="https://github.com/bluvenr/tokenowl/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></div>
+      <div><strong>TokenOwl</strong> &nbsp;·&nbsp; © 2025 TokenOwl Contributors &nbsp;·&nbsp; <a href="https://github.com/bluvenr/tokenowl/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></div>
       <div class="footer-links">
         <a href="https://github.com/bluvenr/tokenowl" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/bluvenr/tokenowl/releases" target="_blank" rel="noopener" data-i18n="footer.releases">Releases</a>
@@ -422,6 +469,7 @@ const i18n = {
     'f6.title':'Tray Mini Mode','f6.desc':'Compact always-on-top widget showing today\'s token usage and budget progress. Stay informed without switching windows.',
     'f7.title':'Data Export','f7.desc':'Export usage data as CSV or JSON for further analysis, reporting, or integration with your existing cost management workflows.',
     'f8.title':'i18n & Auto Update','f8.desc':'Full English and Chinese support with system language auto-detection. Built-in update checker keeps you on the latest version.',
+    'f9.title':'Privacy First','f9.desc':'All data stored locally via SQLite. No cloud uploads, no telemetry — your usage data stays on your machine.',
     'uc.label':'◆ Who It\'s For','uc.title':'Built for developers who care<br/>about AI usage costs',
     'u1.tag':'Individual Developer','u1.title':'Track Your Daily AI Spend','u1.desc':'Know exactly how much you spend on Claude, GPT, and other models. Set personal budgets and avoid surprise bills.',
     'u2.tag':'Team Lead / Manager','u2.title':'Monitor Team Usage','u2.desc':'Aggregate costs across team members. Identify heavy usage patterns and optimize model selection for your team\'s workflow.',
@@ -434,7 +482,7 @@ const i18n = {
     'qs.s4.title':'Build for Production','qs.s4.desc':'Run <code>pnpm tauri build</code> to compile native binaries for your platform.',
     'tech.label':'◆ Tech Stack','tech.title':'Modern, fast, and reliable','tech.desc':'Built with a carefully chosen stack that prioritizes performance and developer experience.',
     'tech.t1':'Desktop framework','tech.t2':'UI library','tech.t3':'Backend engine','tech.t4':'Local database','tech.t5':'Utility-first CSS','tech.t6':'Data visualization','tech.t7':'State management','tech.t8':'Internationalization',
-    'cta.title':'Ready to take control of your<br/><span style="background:linear-gradient(135deg,var(--accent-emerald),var(--accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">AI coding costs?</span>',
+    'cta.title':'Ready to take control of your<br/><span>AI coding costs?</span>',
     'cta.highlight':'AI coding costs?',
     'cta.desc':'TokenOwl is open source and free to use. Star us on GitHub to show your support and stay updated on new releases.',
     'cta.download':'Download Latest Release','cta.star':'Star on GitHub','cta.stars':'Stars','cta.forks':'Forks',
@@ -455,6 +503,7 @@ const i18n = {
     'f6.title':'托盘迷你模式','f6.desc':'紧凑的置顶悬浮窗，实时显示今日 Token 用量和预算进度，无需切换窗口。',
     'f7.title':'数据导出','f7.desc':'支持 CSV 和 JSON 格式导出，便于进一步分析、报告或集成到现有成本管理流程。',
     'f8.title':'国际化 & 自动更新','f8.desc':'完整中英文支持，自动检测系统语言。内置版本检查器，始终保持最新版本。',
+    'f9.title':'隐私优先','f9.desc':'所有数据通过 SQLite 本地存储，无云端上传、无遥测 — 你的使用数据只留在你的电脑上。',
     'uc.label':'◆ 适用人群','uc.title':'为关注 AI 使用成本的<br/>开发者而生',
     'u1.tag':'个人开发者','u1.title':'追踪每日 AI 支出','u1.desc':'精确掌握你在 Claude、GPT 等模型上的花费，设置个人预算，避免意外账单。',
     'u2.tag':'团队负责人','u2.title':'监控团队用量','u2.desc':'汇总团队成员的使用成本，识别高消耗模式，优化团队的模型选择策略。',
@@ -467,7 +516,7 @@ const i18n = {
     'qs.s4.title':'构建生产版本','qs.s4.desc':'运行 <code>pnpm tauri build</code> 编译当前平台的原生二进制文件。',
     'tech.label':'◆ 技术栈','tech.title':'现代、快速、可靠','tech.desc':'精心选择的技术栈，优先考虑性能和开发者体验。',
     'tech.t1':'桌面框架','tech.t2':'UI 库','tech.t3':'后端引擎','tech.t4':'本地数据库','tech.t5':'原子化 CSS','tech.t6':'数据可视化','tech.t7':'状态管理','tech.t8':'国际化',
-    'cta.title':'准备好掌控你的<br/><span style="background:linear-gradient(135deg,var(--accent-emerald),var(--accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">AI 编码成本了吗？</span>',
+    'cta.title':'准备好掌控你的<br/><span>AI 编码成本了吗？</span>',
     'cta.highlight':'AI 编码成本了吗？',
     'cta.desc':'TokenOwl 开源免费。在 GitHub 上为我们 Star，表示支持并获取更新动态。',
     'cta.download':'下载最新版本','cta.star':'Star 本项目','cta.stars':'Stars','cta.forks':'Forks',
@@ -495,7 +544,7 @@ function applyLang(lang) {
     const key = el.getAttribute('data-i18n');
     if (dict[key] !== undefined) el.innerHTML = dict[key];
   });
-  document.getElementById('langBtn').textContent = lang === 'zh' ? '中文' : 'EN';
+  document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中';
   // Update page title
   document.title = lang === 'zh'
     ? 'TokenOwl — AI 编码成本追踪器'
@@ -519,6 +568,14 @@ const obs = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+
+// Tech card brand color on hover
+document.querySelectorAll('.tech-card').forEach(card => {
+  const c = card.dataset.color;
+  if (!c) return;
+  card.addEventListener('mouseenter', () => card.style.borderColor = c);
+  card.addEventListener('mouseleave', () => card.style.borderColor = '');
+});
 </script>
 </body>
 </html>
