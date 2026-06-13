@@ -11,6 +11,9 @@
     <img src="https://img.shields.io/badge/Rust-2021-orange" alt="Rust 2021" />
     <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
   </p>
+  <p>
+    <a href="https://bluvenr.github.io/tokenowl/">🌐 Project Website</a>
+  </p>
 </div>
 
 ---
@@ -30,6 +33,20 @@ TokenOwl is a desktop application for tracking AI coding assistant costs by anal
 - **Data Export** — Export usage data as CSV or JSON
 - **i18n** — Full English and Chinese language support with system auto-detection
 - **Auto Update** — Built-in update checker for new releases
+
+## Platform Support
+
+| Platform | Status |
+|----------|--------|
+| macOS (Apple Silicon / Intel) | ✅ Supported |
+| Windows (x64) | ✅ Supported |
+| Linux (x64) | ✅ Supported |
+
+## Screenshots
+
+| Dashboard | Cost Attribution | Budget Management |
+|-----------|-----------------|------------------|
+| ![Dashboard](pages/assets/screenshots/dashboard.png) | ![Cost Attribution](pages/assets/screenshots/cost-attribution.png) | ![Budget](pages/assets/screenshots/budget.png) |
 
 ## Tech Stack
 
@@ -52,12 +69,30 @@ TokenOwl is a desktop application for tracking AI coding assistant costs by anal
 - [Rust](https://www.rust-lang.org/tools/install) >= 1.75
 - [pnpm](https://pnpm.io/) >= 9
 
+Platform-specific system dependencies:
+
+**macOS**
+```bash
+xcode-select --install
+```
+
+**Linux (Ubuntu/Debian)**
+```bash
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+**Windows**
+- [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (usually pre-installed on Windows 10/11)
+
+> See [Tauri Prerequisites](https://tauri.app/start/prerequisites/) for full details.
+
 ### Setup
 
 ```bash
 # Clone the repository
 git clone https://github.com/bluvenr/tokenowl.git
-cd tokenowl
+cd tokenowl/tokenowl-app
 
 # Install dependencies
 pnpm install
@@ -73,11 +108,13 @@ pnpm tauri build
 
 ```
 app/
+├── .github/workflows/      # GitHub Actions (Pages deploy)
+├── pages/                  # GitHub Pages landing page (not bundled)
 ├── src/                    # Frontend source
 │   ├── components/         # React components
 │   │   ├── dashboard/      # Dashboard widgets
 │   │   └── settings/       # Settings tabs
-│   ├── pages/              # Page components (App, TrayPopup)
+│   ├── pages/              # Page components (Dashboard, Settings, TrayPopup)
 │   ├── stores/             # Zustand state stores
 │   ├── i18n/               # Translation files (en, zh-CN)
 │   ├── lib/                # Utilities and API wrappers
@@ -87,11 +124,15 @@ app/
 │   │   ├── commands/       # Tauri command handlers
 │   │   ├── storage/        # SQLite database layer
 │   │   ├── ccswitch/       # CC Switch integration
-│   │   ├── pricing/        # Price registry
-│   │   └── ...
+│   │   ├── pricing/        # Price registry & calculator
+│   │   ├── models/         # Data models (usage, budget, settings)
+│   │   ├── remote/         # Remote data fetching
+│   │   ├── updater/        # Auto-update logic
+│   │   ├── crash/          # Crash logging
+│   │   └── data/           # Bundled data files (model_prices.json)
 │   ├── capabilities/       # Tauri v2 permissions
 │   └── tauri.conf.json     # Tauri configuration
-└── public/                 # Static assets
+└── index.html              # App entry HTML
 ```
 
 ## License

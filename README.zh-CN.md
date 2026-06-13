@@ -11,6 +11,9 @@
     <img src="https://img.shields.io/badge/Rust-2021-orange" alt="Rust 2021" />
     <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
   </p>
+  <p>
+    <a href="https://bluvenr.github.io/tokenowl/">🌐 项目官网</a>
+  </p>
 </div>
 
 ---
@@ -30,6 +33,20 @@ TokenOwl 是一款桌面应用，通过分析 [CC Switch](https://github.com/far
 - **数据导出** — 支持 CSV 和 JSON 格式导出
 - **国际化** — 完整的中英文支持，自动检测系统语言
 - **自动更新** — 内置版本检查和更新提醒
+
+## 平台支持
+
+| 平台 | 状态 |
+|------|------|
+| macOS (Apple Silicon / Intel) | ✅ 支持 |
+| Windows (x64) | ✅ 支持 |
+| Linux (x64) | ✅ 支持 |
+
+## 截图预览
+
+| 仪表盘 | 成本归因 | 预算管理 |
+|--------|----------|----------|
+| ![仪表盘](pages/assets/screenshots/dashboard.png) | ![成本归因](pages/assets/screenshots/cost-attribution.png) | ![预算管理](pages/assets/screenshots/budget.png) |
 
 ## 技术栈
 
@@ -52,12 +69,30 @@ TokenOwl 是一款桌面应用，通过分析 [CC Switch](https://github.com/far
 - [Rust](https://www.rust-lang.org/tools/install) >= 1.75
 - [pnpm](https://pnpm.io/) >= 9
 
+各平台系统依赖：
+
+**macOS**
+```bash
+xcode-select --install
+```
+
+**Linux (Ubuntu/Debian)**
+```bash
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+**Windows**
+- [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)（Windows 10/11 通常已预装）
+
+> 完整说明请参考 [Tauri 环境准备](https://tauri.app/start/prerequisites/)。
+
 ### 启动
 
 ```bash
 # 克隆仓库
 git clone https://github.com/bluvenr/tokenowl.git
-cd tokenowl
+cd tokenowl/tokenowl-app
 
 # 安装依赖
 pnpm install
@@ -73,11 +108,13 @@ pnpm tauri build
 
 ```
 app/
+├── .github/workflows/      # GitHub Actions (Pages 自动部署)
+├── pages/                  # GitHub Pages 落地页（不参与打包）
 ├── src/                    # 前端源码
 │   ├── components/         # React 组件
 │   │   ├── dashboard/      # 仪表盘组件
 │   │   └── settings/       # 设置标签页
-│   ├── pages/              # 页面组件 (App, TrayPopup)
+│   ├── pages/              # 页面组件 (Dashboard, Settings, TrayPopup)
 │   ├── stores/             # Zustand 状态管理
 │   ├── i18n/               # 翻译文件 (en, zh-CN)
 │   ├── lib/                # 工具函数和 API 封装
@@ -87,11 +124,15 @@ app/
 │   │   ├── commands/       # Tauri 命令处理
 │   │   ├── storage/        # SQLite 数据库层
 │   │   ├── ccswitch/       # CC Switch 集成
-│   │   ├── pricing/        # 价格注册表
-│   │   └── ...
+│   │   ├── pricing/        # 价格注册与计算
+│   │   ├── models/         # 数据模型 (usage, budget, settings)
+│   │   ├── remote/         # 远程数据拉取
+│   │   ├── updater/        # 自动更新逻辑
+│   │   ├── crash/          # 崩溃日志
+│   │   └── data/           # 内置数据文件 (model_prices.json)
 │   ├── capabilities/       # Tauri v2 权限配置
 │   └── tauri.conf.json     # Tauri 配置
-└── public/                 # 静态资源
+└── index.html              # 应用入口 HTML
 ```
 
 ## 许可证

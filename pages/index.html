@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TokenOwl — AI Coding Cost Tracker</title>
+  <meta name="description" content="Track AI coding assistant costs in real time. TokenOwl analyzes proxy data from CC Switch to deliver cost attribution, budget alerts, and usage analytics across multiple AI providers." />
+  <meta name="keywords" content="AI coding cost, token usage tracker, Claude cost, GPT cost, CC Switch, budget management, developer tool" />
+  <link rel="canonical" href="https://bluvenr.github.io/tokenowl/" />
+  <link rel="alternate" hreflang="en" href="https://bluvenr.github.io/tokenowl/?lang=en" />
+  <link rel="alternate" hreflang="zh-CN" href="https://bluvenr.github.io/tokenowl/?lang=zh" />
+  <link rel="alternate" hreflang="x-default" href="https://bluvenr.github.io/tokenowl/" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="TokenOwl — AI Coding Cost Tracker" />
+  <meta property="og:description" content="Track AI coding assistant costs in real time. Cost attribution, budget alerts, and usage analytics across multiple AI providers." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://bluvenr.github.io/tokenowl/" />
+  <meta property="og:image" content="https://bluvenr.github.io/tokenowl/assets/icon-256.png" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="zh_CN" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="TokenOwl — AI Coding Cost Tracker" />
+  <meta name="twitter:description" content="Track AI coding assistant costs in real time. Cost attribution, budget alerts, and usage analytics across multiple AI providers." />
+  <meta name="twitter:image" content="https://bluvenr.github.io/tokenowl/assets/icon-256.png" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="./assets/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/icon-32.png" />
+  <link rel="icon" type="image/png" sizes="128x128" href="./assets/icon-128.png" />
+  <link rel="apple-touch-icon" sizes="256x256" href="./assets/icon-256.png" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "TokenOwl",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Windows, Linux",
+    "description": "AI Coding Cost Tracker — Track AI coding assistant costs in real time with cost attribution, budget alerts, and usage analytics.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "license": "https://opensource.org/licenses/MIT",
+    "codeRepository": "https://github.com/bluvenr/tokenowl",
+    "image": "https://bluvenr.github.io/tokenowl/assets/icon-256.png"
+  }
+  </script>
+
+  <script>
+  var _hmt = _hmt || [];
+  (function() {
+    var hm = document.createElement("script");
+    hm.src = "https://hm.baidu.com/hm.js?6d42261e3c030ad247869bb5fd54dee9";
+    var s = document.getElementsByTagName("script")[0]; 
+    s.parentNode.insertBefore(hm, s);
+  })();
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #0b0f1a; --bg-surface: #111827; --bg-card: #1a2235; --bg-elevated: #1f2b42;
+      --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.14);
+      --text-primary: #f0f4fc; --text-secondary: #8b9dc3; --text-muted: #546380;
+      --accent-green: #34d399; --accent-blue: #60a5fa; --accent-purple: #c084fc;
+      --accent-orange: #fb923c; --accent-emerald: #10b981; --accent-cyan: #22d3ee;
+      --grad-start: #059669; --grad-end: #0891b2;
+      --font-body: 'Outfit', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font-body); background: var(--bg-base); color: var(--text-primary); line-height: 1.6; overflow-x: hidden; }
+    a { color: var(--accent-blue); text-decoration: none; transition: color .2s; }
+    a:hover { color: var(--accent-cyan); }
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+    /* ─── Nav ─── */
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(11,15,26,.82); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; color: var(--text-primary); }
+    .nav-brand img { width: 28px; height: 28px; border-radius: 6px; }
+    .nav-links { display: flex; align-items: center; gap: 24px; }
+    .nav-links a { color: var(--text-secondary); font-size: .9rem; font-weight: 500; transition: color .2s; }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .lang-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 5px 10px; font-size: .8rem; font-family: var(--font-body); cursor: pointer; font-weight: 500; transition: all .2s; }
+    .lang-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border-hover); }
+    .gh-btn { display: inline-flex; align-items: center; gap: 7px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; padding: 6px 14px; font-size: .85rem; font-weight: 500; transition: all .2s; }
+    .gh-btn:hover { background: var(--bg-elevated); border-color: var(--border-hover); color: var(--text-primary); }
+    .gh-btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .hamburger { display: none; background: none; border: none; color: var(--text-primary); cursor: pointer; padding: 4px; }
+    .hamburger svg { width: 24px; height: 24px; }
+    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: var(--bg-surface); border-bottom: 1px solid var(--border); padding: 16px 24px; z-index: 99; flex-direction: column; gap: 12px; }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a { color: var(--text-secondary); font-size: .95rem; font-weight: 500; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .mobile-menu a:last-child { border-bottom: none; }
+
+    /* ─── Hero ─── */
+    .hero { position: relative; padding: 140px 0 100px; text-align: center; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(16,185,129,.12) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 70% 20%, rgba(8,145,178,.10) 0%, transparent 70%); pointer-events: none; }
+    .hero-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); background-size: 60px 60px; mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 20%, transparent 100%); -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 20%, transparent 100%); }
+    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); color: var(--accent-emerald); font-size: .82rem; font-weight: 500; padding: 5px 14px; border-radius: 100px; margin-bottom: 24px; }
+    .hero-badge span:first-child { width: 6px; height: 6px; background: var(--accent-emerald); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    .hero-icon { width: 88px; height: 88px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 28px; box-shadow: 0 0 0 1px rgba(16,185,129,.2), 0 20px 60px rgba(16,185,129,.15); overflow: hidden; }
+    .hero-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .hero h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; margin-bottom: 20px; }
+    .hero h1 .gradient-text { background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-desc { font-size: 1.15rem; color: var(--text-secondary); max-width: 580px; margin: 0 auto 40px; line-height: 1.7; }
+    .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 26px; border-radius: 10px; font-size: .95rem; font-weight: 600; font-family: var(--font-body); cursor: pointer; border: none; transition: all .2s; }
+    .btn-primary { background: linear-gradient(135deg, var(--grad-start), var(--grad-end)); color: #fff; box-shadow: 0 4px 20px rgba(16,185,129,.25); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(16,185,129,.35); }
+    .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); }
+    .btn-secondary:hover { background: var(--bg-elevated); border-color: var(--border-hover); }
+    .btn svg { width: 18px; height: 18px; }
+    .hero-platforms { margin-top: 20px; font-size: .82rem; color: var(--text-muted); }
+
+    /* ─── Section Common ─── */
+    section { padding: 80px 0; }
+    .section-label { display: inline-flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-emerald); margin-bottom: 12px; }
+    .section-title { font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 700; letter-spacing: -.02em; margin-bottom: 12px; }
+    .section-desc { font-size: 1.05rem; color: var(--text-secondary); max-width: 600px; }
+    .section-header { text-align: center; margin-bottom: 56px; }
+    .section-header .section-desc { margin: 0 auto; }
+
+    /* ─── Features ─── */
+    .features-section { background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .feature-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 28px; transition: all .25s; }
+    .feature-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .feature-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 1.3rem; }
+    .fi-green { background: rgba(52,211,153,.12); color: var(--accent-green); }
+    .fi-blue { background: rgba(96,165,250,.12); color: var(--accent-blue); }
+    .fi-purple { background: rgba(192,132,252,.12); color: var(--accent-purple); }
+    .fi-orange { background: rgba(251,146,60,.12); color: var(--accent-orange); }
+    .fi-cyan { background: rgba(34,211,238,.12); color: var(--accent-cyan); }
+    .feature-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { font-size: .9rem; color: var(--text-secondary); line-height: 1.65; }
+
+    /* ─── Use Cases ─── */
+    .usecases-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+    .usecase-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+    .usecase-tag { font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; display: block; }
+    .usecase-card h4 { font-size: .95rem; font-weight: 600; margin-bottom: 6px; }
+    .usecase-card p { font-size: .87rem; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ─── Quick Start ─── */
+    .quickstart-section { background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .qs-layout { display: grid; grid-template-columns: 1fr 1.3fr; gap: 48px; align-items: start; }
+    .qs-steps { display: flex; flex-direction: column; gap: 24px; }
+    .qs-step { display: flex; gap: 16px; }
+    .qs-num { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25); color: var(--accent-emerald); font-weight: 700; font-size: .85rem; display: flex; align-items: center; justify-content: center; }
+    .qs-step-content h4 { font-size: .95rem; font-weight: 600; margin-bottom: 4px; }
+    .qs-step-content p { font-size: .87rem; color: var(--text-secondary); }
+    .qs-step-content code { background: var(--bg-elevated); padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: .82rem; }
+    .qs-terminal { background: #0d1420; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-family: var(--font-mono); font-size: .82rem; }
+    .qs-term-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02); }
+    .qs-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .qs-dot-r { background: #f87171; } .qs-dot-y { background: #fbbf24; } .qs-dot-g { background: #4ade80; }
+    .qs-term-title { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
+    .qs-term-body { padding: 20px; line-height: 2; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .qs-term-body .c { color: var(--text-muted); } .qs-term-body .k { color: var(--accent-emerald); } .qs-term-body .s { color: var(--accent-cyan); } .qs-term-body .p { color: var(--text-muted); user-select: none; }
+
+    /* ─── Tech Stack ─── */
+    .tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+    .tech-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 14px; text-align: center; transition: all .2s; }
+    .tech-card:hover { border-color: var(--border-hover); }
+    .tech-card-icon { font-size: 1.6rem; margin-bottom: 8px; }
+    .tech-card h4 { font-size: .88rem; font-weight: 600; margin-bottom: 3px; }
+    .tech-card p { font-size: .78rem; color: var(--text-muted); }
+
+    /* ─── CTA ─── */
+    .cta-section { background: var(--bg-surface); border-top: 1px solid var(--border); text-align: center; }
+    .cta-box { background: linear-gradient(135deg, rgba(16,185,129,.06), rgba(8,145,178,.06)); border: 1px solid rgba(16,185,129,.2); border-radius: 20px; padding: 56px 32px; }
+    .cta-box h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 700; margin-bottom: 14px; }
+    .cta-box p { color: var(--text-secondary); font-size: 1rem; max-width: 520px; margin: 0 auto 32px; }
+    .cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .gh-stats { display: flex; gap: 20px; justify-content: center; margin-top: 28px; }
+    .gh-stat { display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--text-muted); }
+    .gh-stat svg { width: 16px; height: 16px; fill: currentColor; }
+
+    /* ─── Footer ─── */
+    footer { border-top: 1px solid var(--border); padding: 32px 0; font-size: .85rem; color: var(--text-muted); }
+    .footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+    .footer-links a { color: var(--text-muted); transition: color .2s; }
+    .footer-links a:hover { color: var(--text-secondary); }
+
+    /* ─── Animations ─── */
+    .fade-in { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 900px) {
+      .qs-layout { grid-template-columns: 1fr; gap: 36px; }
+    }
+    @media (max-width: 768px) {
+      .nav-links, .gh-btn { display: none; }
+      .hamburger { display: block; }
+      .hero { padding: 110px 0 70px; }
+      .hero-icon { width: 72px; height: 72px; border-radius: 16px; }
+      .hero-icon img { width: 100%; height: 100%; object-fit: cover; }
+      .hero-desc { font-size: 1rem; }
+      .features-grid { grid-template-columns: 1fr; }
+      .usecases-grid { grid-template-columns: 1fr; }
+      .tech-grid { grid-template-columns: repeat(2, 1fr); }
+      .cta-box { padding: 40px 20px; }
+      .gh-stats { flex-direction: column; align-items: center; gap: 8px; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
+    }
+    @media (max-width: 480px) {
+      .container { padding: 0 16px; }
+      .btn { padding: 10px 20px; font-size: .88rem; }
+      section { padding: 56px 0; }
+      .feature-card { padding: 20px; }
+      .tech-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">
+      <img src="./assets/icon-128.png" alt="TokenOwl" /> TokenOwl
+    </a>
+    <div class="nav-links">
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#usecases" data-i18n="nav.usecases">Use Cases</a>
+      <a href="#quickstart" data-i18n="nav.quickstart">Getting Started</a>
+      <a href="#tech" data-i18n="nav.tech">Tech Stack</a>
+    </div>
+    <div class="nav-right">
+      <button class="lang-btn" id="langBtn" onclick="toggleLang()" aria-label="Switch language">EN</button>
+      <a class="gh-btn" href="https://github.com/bluvenr/tokenowl" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <button class="hamburger" onclick="toggleMenu()" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="#features" data-i18n="nav.features" onclick="closeMenu()">Features</a>
+    <a href="#usecases" data-i18n="nav.usecases" onclick="closeMenu()">Use Cases</a>
+    <a href="#quickstart" data-i18n="nav.quickstart" onclick="closeMenu()">Getting Started</a>
+    <a href="#tech" data-i18n="nav.tech" onclick="closeMenu()">Tech Stack</a>
+    <a href="https://github.com/bluvenr/tokenowl" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="container" style="position:relative;">
+    <div class="hero-badge"><span></span> <span data-i18n="hero.badge">Open Source · MIT Licensed</span></div>
+    <div class="hero-icon"><img src="./assets/icon-256.png" alt="TokenOwl" width="56" height="56" /></div>
+    <h1><span class="gradient-text" data-i18n="hero.title1">AI Coding Cost</span><br /><span data-i18n="hero.title2">Tracker</span></h1>
+    <p class="hero-desc" data-i18n="hero.desc">Real-time visibility into your AI coding assistant usage and spending. Analyze proxy data from <a href="https://github.com/farion1231/cc-switch" target="_blank" rel="noopener">CC Switch</a> to track costs, tokens, and requests across every model and provider.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://github.com/bluvenr/tokenowl/releases/latest" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        <span data-i18n="hero.download">Download Now</span>
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/bluvenr/tokenowl" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span data-i18n="hero.github">View on GitHub</span>
+      </a>
+    </div>
+    <p class="hero-platforms" data-i18n="hero.platforms">Available for macOS · Windows · Linux</p>
+  </div>
+</section>
+
+<section class="features-section" id="features">
+  <div class="container">
+    <div class="section-header fade-in">
+      <p class="section-label" data-i18n="features.label">◆ Core Features</p>
+      <h2 class="section-title" data-i18n="features.title">Everything you need to<br />control AI coding costs</h2>
+      <p class="section-desc" data-i18n="features.desc">From real-time dashboards to budget alerts — full visibility into every token, every request, every dollar.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card fade-in"><div class="feature-icon fi-green">$</div><h3 data-i18n="f1.title">Real-Time Cost Dashboard</h3><p data-i18n="f1.desc">Instant overview of total spend, token consumption, and request counts. Track trends over time with period comparisons and anomaly detection.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon fi-blue">⬡</div><h3 data-i18n="f2.title">Cost Attribution</h3><p data-i18n="f2.desc">Break down costs by model, provider, and token type — input, output, and cache tokens each tracked separately for precise accounting.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon fi-purple">◎</div><h3 data-i18n="f3.title">Budget Management</h3><p data-i18n="f3.desc">Set daily, weekly, or monthly spending limits with configurable alert thresholds. Get notified before you overshoot your budget.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon fi-orange">◈</div><h3 data-i18n="f4.title">Provider Analytics</h3><p data-i18n="f4.desc">Visualize usage distribution and health across all your AI providers. Understand where your money goes at a glance.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon fi-cyan">⇌</div><h3 data-i18n="f5.title">CC Switch Integration</h3><p data-i18n="f5.desc">One-click sync from CC Switch proxy logs. No manual configuration needed — just connect and start tracking immediately.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon fi-green">▣</div><h3 data-i18n="f6.title">Tray Mini Mode</h3><p data-i18n="f6.desc">Compact always-on-top widget showing today's token usage and budget progress. Stay informed without switching windows.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon fi-blue">↓</div><h3 data-i18n="f7.title">Data Export</h3><p data-i18n="f7.desc">Export usage data as CSV or JSON for further analysis, reporting, or integration with your existing cost management workflows.</p></div>
+      <div class="feature-card fade-in"><div class="feature-icon fi-purple">🌐</div><h3 data-i18n="f8.title">i18n & Auto Update</h3><p data-i18n="f8.desc">Full English and Chinese support with system language auto-detection. Built-in update checker keeps you on the latest version.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="usecases">
+  <div class="container">
+    <div class="section-header fade-in">
+      <p class="section-label" data-i18n="uc.label">◆ Who It's For</p>
+      <h2 class="section-title" data-i18n="uc.title">Built for developers who care<br />about AI usage costs</h2>
+    </div>
+    <div class="usecases-grid">
+      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-green);" data-i18n="u1.tag">Individual Developer</span><h4 data-i18n="u1.title">Track Your Daily AI Spend</h4><p data-i18n="u1.desc">Know exactly how much you spend on Claude, GPT, and other models. Set personal budgets and avoid surprise bills.</p></div>
+      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-blue);" data-i18n="u2.tag">Team Lead / Manager</span><h4 data-i18n="u2.title">Monitor Team Usage</h4><p data-i18n="u2.desc">Aggregate costs across team members. Identify heavy usage patterns and optimize model selection for your team's workflow.</p></div>
+      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-purple);" data-i18n="u3.tag">Startup / Small Company</span><h4 data-i18n="u3.title">Control AI Infrastructure Costs</h4><p data-i18n="u3.desc">AI coding tools can quietly drain budgets. TokenOwl gives you the data to make informed decisions about which tools and models to invest in.</p></div>
+      <div class="usecase-card fade-in"><span class="usecase-tag" style="color:var(--accent-orange);" data-i18n="u4.tag">Cost-Conscious Org</span><h4 data-i18n="u4.title">Audit & Compliance</h4><p data-i18n="u4.desc">Export detailed usage reports for finance teams. Attribute costs to projects, models, or departments with full data transparency.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="quickstart-section" id="quickstart">
+  <div class="container">
+    <div class="section-header fade-in">
+      <p class="section-label" data-i18n="qs.label">◆ Getting Started</p>
+      <h2 class="section-title" data-i18n="qs.title">Up and running in minutes</h2>
+      <p class="section-desc" data-i18n="qs.desc">Clone, install, and launch. No complicated setup required.</p>
+    </div>
+    <div class="qs-layout fade-in">
+      <div class="qs-steps">
+        <div class="qs-step"><div class="qs-num">1</div><div class="qs-step-content"><h4 data-i18n="qs.s1.title">Clone the Repository</h4><p data-i18n="qs.s1.desc">Clone from GitHub and enter the app directory.</p></div></div>
+        <div class="qs-step"><div class="qs-num">2</div><div class="qs-step-content"><h4 data-i18n="qs.s2.title">Install Dependencies</h4><p data-i18n="qs.s2.desc">Install Node.js & Rust toolchains, then run <code>pnpm install</code>.</p></div></div>
+        <div class="qs-step"><div class="qs-num">3</div><div class="qs-step-content"><h4 data-i18n="qs.s3.title">Start Development</h4><p data-i18n="qs.s3.desc">Run <code>pnpm tauri dev</code> to launch the app in dev mode with hot reload.</p></div></div>
+        <div class="qs-step"><div class="qs-num">4</div><div class="qs-step-content"><h4 data-i18n="qs.s4.title">Build for Production</h4><p data-i18n="qs.s4.desc">Run <code>pnpm tauri build</code> to compile native binaries for your platform.</p></div></div>
+      </div>
+      <div class="qs-terminal">
+        <div class="qs-term-header"><span class="qs-dot qs-dot-r"></span><span class="qs-dot qs-dot-y"></span><span class="qs-dot qs-dot-g"></span><span class="qs-term-title">terminal</span></div>
+        <div class="qs-term-body"><span class="c"># 1. Clone the repository</span>
+<span class="p">$ </span><span class="k">git clone</span> <span class="s">https://github.com/bluvenr/tokenowl.git</span>
+<span class="p">$ </span><span class="k">cd</span> <span class="s">tokenowl</span>
+
+<span class="c"># 2. Install dependencies</span>
+<span class="p">$ </span><span class="k">pnpm install</span>
+
+<span class="c"># 3. Start development server</span>
+<span class="p">$ </span><span class="k">pnpm tauri dev</span>
+
+<span class="c"># 4. Build production binaries</span>
+<span class="p">$ </span><span class="k">pnpm tauri build</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tech">
+  <div class="container">
+    <div class="section-header fade-in">
+      <p class="section-label" data-i18n="tech.label">◆ Tech Stack</p>
+      <h2 class="section-title" data-i18n="tech.title">Modern, fast, and reliable</h2>
+      <p class="section-desc" data-i18n="tech.desc">Built with a carefully chosen stack that prioritizes performance and developer experience.</p>
+    </div>
+    <div class="tech-grid fade-in">
+      <div class="tech-card"><div class="tech-card-icon">🦀</div><h4>Tauri v2</h4><p data-i18n="tech.t1">Desktop framework</p></div>
+      <div class="tech-card"><div class="tech-card-icon">⚛️</div><h4>React 19</h4><p data-i18n="tech.t2">UI library</p></div>
+      <div class="tech-card"><div class="tech-card-icon">🦀</div><h4>Rust</h4><p data-i18n="tech.t3">Backend engine</p></div>
+      <div class="tech-card"><div class="tech-card-icon">🗃️</div><h4>SQLite</h4><p data-i18n="tech.t4">Local database</p></div>
+      <div class="tech-card"><div class="tech-card-icon">🎨</div><h4>TailwindCSS 4</h4><p data-i18n="tech.t5">Utility-first CSS</p></div>
+      <div class="tech-card"><div class="tech-card-icon">📊</div><h4>Recharts</h4><p data-i18n="tech.t6">Data visualization</p></div>
+      <div class="tech-card"><div class="tech-card-icon">🐻</div><h4>Zustand</h4><p data-i18n="tech.t7">State management</p></div>
+      <div class="tech-card"><div class="tech-card-icon">🌍</div><h4>i18next</h4><p data-i18n="tech.t8">Internationalization</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-box fade-in">
+      <h2 data-i18n="cta.title">Ready to take control of your<br /><span style="background:linear-gradient(135deg,var(--accent-emerald),var(--accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;" data-i18n="cta.highlight">AI coding costs?</span></h2>
+      <p data-i18n="cta.desc">TokenOwl is open source and free to use. Star us on GitHub to show your support and stay updated on new releases.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href="https://github.com/bluvenr/tokenowl/releases/latest" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          <span data-i18n="cta.download">Download Latest Release</span>
+        </a>
+        <a class="btn btn-secondary" href="https://github.com/bluvenr/tokenowl" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span data-i18n="cta.star">Star on GitHub</span>
+        </a>
+      </div>
+      <div class="gh-stats">
+        <span class="gh-stat"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> <span data-i18n="cta.stars">Stars</span></span>
+        <span class="gh-stat"><svg viewBox="0 0 16 16"><path d="M5 3.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm0 2.122a2.25 2.25 0 10-1.5 0v.878A2.25 2.25 0 005.75 8.5h1.5v2.128a2.251 2.251 0 101.5 0V8.5h1.5a2.25 2.25 0 002.25-2.25v-.878a2.25 2.25 0 10-1.5 0v.878a.75.75 0 01-.75.75h-4.5A.75.75 0 015 6.25v-.878zm3.75 7.59a.75.75 0 10-1.5 0 .75.75 0 001.5 0zm-3.75 2.12a.75.75 0 10-1.5 0 .75.75 0 001.5 0z"/></svg> <span data-i18n="cta.forks">Forks</span></span>
+        <span class="gh-stat">MIT License</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div><span style="font-weight:600;color:var(--text-secondary);">TokenOwl</span> &nbsp;·&nbsp; © 2025 TokenOwl Contributors &nbsp;·&nbsp; <a href="https://github.com/bluvenr/tokenowl/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></div>
+      <div class="footer-links">
+        <a href="https://github.com/bluvenr/tokenowl" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/bluvenr/tokenowl/releases" target="_blank" rel="noopener" data-i18n="footer.releases">Releases</a>
+        <a href="https://github.com/bluvenr/tokenowl/issues" target="_blank" rel="noopener" data-i18n="footer.issues">Issues</a>
+        <a href="https://github.com/farion1231/cc-switch" target="_blank" rel="noopener">CC Switch</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ─── i18n ─── */
+const i18n = {
+  en: {
+    'nav.features':'Features','nav.usecases':'Use Cases','nav.quickstart':'Getting Started','nav.tech':'Tech Stack',
+    'hero.badge':'Open Source · MIT Licensed','hero.title1':'AI Coding Cost','hero.title2':'Tracker',
+    'hero.desc':'Real-time visibility into your AI coding assistant usage and spending. Analyze proxy data from <a href="https://github.com/farion1231/cc-switch" target="_blank" rel="noopener">CC Switch</a> to track costs, tokens, and requests across every model and provider.',
+    'hero.download':'Download Now','hero.github':'View on GitHub','hero.platforms':'Available for macOS · Windows · Linux',
+    'features.label':'◆ Core Features','features.title':'Everything you need to<br/>control AI coding costs','features.desc':'From real-time dashboards to budget alerts — full visibility into every token, every request, every dollar.',
+    'f1.title':'Real-Time Cost Dashboard','f1.desc':'Instant overview of total spend, token consumption, and request counts. Track trends over time with period comparisons and anomaly detection.',
+    'f2.title':'Cost Attribution','f2.desc':'Break down costs by model, provider, and token type — input, output, and cache tokens each tracked separately for precise accounting.',
+    'f3.title':'Budget Management','f3.desc':'Set daily, weekly, or monthly spending limits with configurable alert thresholds. Get notified before you overshoot your budget.',
+    'f4.title':'Provider Analytics','f4.desc':'Visualize usage distribution and health across all your AI providers. Understand where your money goes at a glance.',
+    'f5.title':'CC Switch Integration','f5.desc':'One-click sync from CC Switch proxy logs. No manual configuration needed — just connect and start tracking immediately.',
+    'f6.title':'Tray Mini Mode','f6.desc':'Compact always-on-top widget showing today\'s token usage and budget progress. Stay informed without switching windows.',
+    'f7.title':'Data Export','f7.desc':'Export usage data as CSV or JSON for further analysis, reporting, or integration with your existing cost management workflows.',
+    'f8.title':'i18n & Auto Update','f8.desc':'Full English and Chinese support with system language auto-detection. Built-in update checker keeps you on the latest version.',
+    'uc.label':'◆ Who It\'s For','uc.title':'Built for developers who care<br/>about AI usage costs',
+    'u1.tag':'Individual Developer','u1.title':'Track Your Daily AI Spend','u1.desc':'Know exactly how much you spend on Claude, GPT, and other models. Set personal budgets and avoid surprise bills.',
+    'u2.tag':'Team Lead / Manager','u2.title':'Monitor Team Usage','u2.desc':'Aggregate costs across team members. Identify heavy usage patterns and optimize model selection for your team\'s workflow.',
+    'u3.tag':'Startup / Small Company','u3.title':'Control AI Infrastructure Costs','u3.desc':'AI coding tools can quietly drain budgets. TokenOwl gives you the data to make informed decisions about which tools and models to invest in.',
+    'u4.tag':'Cost-Conscious Org','u4.title':'Audit & Compliance','u4.desc':'Export detailed usage reports for finance teams. Attribute costs to projects, models, or departments with full data transparency.',
+    'qs.label':'◆ Getting Started','qs.title':'Up and running in minutes','qs.desc':'Clone, install, and launch. No complicated setup required.',
+    'qs.s1.title':'Clone the Repository','qs.s1.desc':'Clone from GitHub and enter the app directory.',
+    'qs.s2.title':'Install Dependencies','qs.s2.desc':'Install Node.js & Rust toolchains, then run <code>pnpm install</code>.',
+    'qs.s3.title':'Start Development','qs.s3.desc':'Run <code>pnpm tauri dev</code> to launch the app in dev mode with hot reload.',
+    'qs.s4.title':'Build for Production','qs.s4.desc':'Run <code>pnpm tauri build</code> to compile native binaries for your platform.',
+    'tech.label':'◆ Tech Stack','tech.title':'Modern, fast, and reliable','tech.desc':'Built with a carefully chosen stack that prioritizes performance and developer experience.',
+    'tech.t1':'Desktop framework','tech.t2':'UI library','tech.t3':'Backend engine','tech.t4':'Local database','tech.t5':'Utility-first CSS','tech.t6':'Data visualization','tech.t7':'State management','tech.t8':'Internationalization',
+    'cta.title':'Ready to take control of your<br/><span style="background:linear-gradient(135deg,var(--accent-emerald),var(--accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">AI coding costs?</span>',
+    'cta.highlight':'AI coding costs?',
+    'cta.desc':'TokenOwl is open source and free to use. Star us on GitHub to show your support and stay updated on new releases.',
+    'cta.download':'Download Latest Release','cta.star':'Star on GitHub','cta.stars':'Stars','cta.forks':'Forks',
+    'footer.releases':'Releases','footer.issues':'Issues'
+  },
+  zh: {
+    'nav.features':'功能特性','nav.usecases':'使用场景','nav.quickstart':'快速上手','nav.tech':'技术栈',
+    'hero.badge':'开源 · MIT 许可',
+    'hero.title1':'AI 编码成本','hero.title2':'追踪器',
+    'hero.desc':'实时掌握 AI 编码助手的使用情况和支出。通过分析 <a href="https://github.com/farion1231/cc-switch" target="_blank" rel="noopener">CC Switch</a> 代理数据，追踪每个模型和供应商的成本、Token 和请求量。',
+    'hero.download':'立即下载','hero.github':'查看 GitHub','hero.platforms':'支持 macOS · Windows · Linux',
+    'features.label':'◆ 核心功能','features.title':'掌控 AI 编码成本<br/>所需的一切','features.desc':'从实时仪表盘到预算告警 — 对每一个 Token、每一次请求、每一分钱都了然于胸。',
+    'f1.title':'实时成本仪表盘','f1.desc':'即时查看总支出、Token 消耗和请求数量。支持周期对比和异常检测，轻松追踪趋势。',
+    'f2.title':'成本归因','f2.desc':'按模型、供应商和 Token 类型（输入/输出/缓存）分别核算成本，实现精准的成本分摊。',
+    'f3.title':'预算管理','f3.desc':'设置每日、每周或每月消费限额，支持自定义告警阈值，在超支前及时通知。',
+    'f4.title':'供应商分析','f4.desc':'可视化各 AI 供应商的使用分布和健康状态，一目了然你的钱花在了哪里。',
+    'f5.title':'CC Switch 集成','f5.desc':'一键同步 CC Switch 代理日志数据，无需手动配置，连接即可开始追踪。',
+    'f6.title':'托盘迷你模式','f6.desc':'紧凑的置顶悬浮窗，实时显示今日 Token 用量和预算进度，无需切换窗口。',
+    'f7.title':'数据导出','f7.desc':'支持 CSV 和 JSON 格式导出，便于进一步分析、报告或集成到现有成本管理流程。',
+    'f8.title':'国际化 & 自动更新','f8.desc':'完整中英文支持，自动检测系统语言。内置版本检查器，始终保持最新版本。',
+    'uc.label':'◆ 适用人群','uc.title':'为关注 AI 使用成本的<br/>开发者而生',
+    'u1.tag':'个人开发者','u1.title':'追踪每日 AI 支出','u1.desc':'精确掌握你在 Claude、GPT 等模型上的花费，设置个人预算，避免意外账单。',
+    'u2.tag':'团队负责人','u2.title':'监控团队用量','u2.desc':'汇总团队成员的使用成本，识别高消耗模式，优化团队的模型选择策略。',
+    'u3.tag':'初创公司 / 小型企业','u3.title':'控制 AI 基础设施成本','u3.desc':'AI 编码工具可能在不知不觉中消耗预算。TokenOwl 为你提供数据，帮助做出明智的工具和模型投资决策。',
+    'u4.tag':'成本敏感型组织','u4.title':'审计与合规','u4.desc':'为财务团队导出详细的使用报告，按项目、模型或部门归因成本，实现完全透明的数据管理。',
+    'qs.label':'◆ 快速上手','qs.title':'几分钟即可启动','qs.desc':'克隆、安装、启动，无需复杂配置。',
+    'qs.s1.title':'克隆仓库','qs.s1.desc':'从 GitHub 克隆并进入应用目录。',
+    'qs.s2.title':'安装依赖','qs.s2.desc':'安装 Node.js 和 Rust 工具链，然后运行 <code>pnpm install</code>。',
+    'qs.s3.title':'启动开发','qs.s3.desc':'运行 <code>pnpm tauri dev</code> 以开发模式启动应用，支持热重载。',
+    'qs.s4.title':'构建生产版本','qs.s4.desc':'运行 <code>pnpm tauri build</code> 编译当前平台的原生二进制文件。',
+    'tech.label':'◆ 技术栈','tech.title':'现代、快速、可靠','tech.desc':'精心选择的技术栈，优先考虑性能和开发者体验。',
+    'tech.t1':'桌面框架','tech.t2':'UI 库','tech.t3':'后端引擎','tech.t4':'本地数据库','tech.t5':'原子化 CSS','tech.t6':'数据可视化','tech.t7':'状态管理','tech.t8':'国际化',
+    'cta.title':'准备好掌控你的<br/><span style="background:linear-gradient(135deg,var(--accent-emerald),var(--accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">AI 编码成本了吗？</span>',
+    'cta.highlight':'AI 编码成本了吗？',
+    'cta.desc':'TokenOwl 开源免费。在 GitHub 上为我们 Star，表示支持并获取更新动态。',
+    'cta.download':'下载最新版本','cta.star':'Star 本项目','cta.stars':'Stars','cta.forks':'Forks',
+    'footer.releases':'版本发布','footer.issues':'问题反馈'
+  }
+};
+
+let currentLang = 'en';
+
+function detectLang() {
+  const params = new URLSearchParams(location.search);
+  const q = params.get('lang');
+  if (q === 'zh' || q === 'zh-CN' || q === 'zh-cn') return 'zh';
+  if (q === 'en') return 'en';
+  const nav = (navigator.language || '').toLowerCase();
+  if (nav.startsWith('zh')) return 'zh';
+  return 'en';
+}
+
+function applyLang(lang) {
+  currentLang = lang;
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  const dict = i18n[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.innerHTML = dict[key];
+  });
+  document.getElementById('langBtn').textContent = lang === 'zh' ? '中文' : 'EN';
+  // Update page title
+  document.title = lang === 'zh'
+    ? 'TokenOwl — AI 编码成本追踪器'
+    : 'TokenOwl — AI Coding Cost Tracker';
+}
+
+function toggleLang() {
+  const next = currentLang === 'en' ? 'zh' : 'en';
+  applyLang(next);
+  history.replaceState(null, '', '?lang=' + next);
+}
+
+function toggleMenu() { document.getElementById('mobileMenu').classList.toggle('open'); }
+function closeMenu() { document.getElementById('mobileMenu').classList.remove('open'); }
+
+// Init
+applyLang(detectLang());
+
+// Scroll animation
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
